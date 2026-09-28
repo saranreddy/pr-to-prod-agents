@@ -188,12 +188,12 @@ async def _run_demo(use_mock: bool) -> None:
         )
 
         result_or_dict = await app_compiled.ainvoke(state)
-        
+
         if isinstance(result_or_dict, dict):
             result = WorkflowState(**result_or_dict)
         else:
             result = result_or_dict
-            
+
         console.print(f"\n[green]Workflow completed: {result.current_step.value}[/green]")
 
 
