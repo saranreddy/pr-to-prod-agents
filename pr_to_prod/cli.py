@@ -53,7 +53,7 @@ async def _run_workflow(
     owner: str,
     repo: str,
     use_mock: bool,
-) -> None:  # type: ignore[no-untyped-def]
+) -> None:
     """Run the workflow asynchronously."""
     settings = get_settings()
     gateway = ToolGateway()  # type: ignore[no-untyped-call]
@@ -119,7 +119,7 @@ async def _run_workflow(
 @app.command()
 def demo(
     mock: bool = typer.Option(True, "--mock/--real", help="Use mock mode"),
-):
+) -> None:
     """
     Run an end-to-end demo of the workflow.
     """
@@ -133,7 +133,7 @@ def demo(
     asyncio.run(_run_demo(mock))
 
 
-async def _run_demo(use_mock: bool) -> None:  # type: ignore[no-untyped-def]
+async def _run_demo(use_mock: bool) -> None:
     """Run the demo workflow."""
     settings = get_settings()
     gateway = ToolGateway()  # type: ignore[no-untyped-call]
@@ -187,7 +187,13 @@ async def _run_demo(use_mock: bool) -> None:  # type: ignore[no-untyped-def]
             comments="Demo approval",
         )
 
-        result = await app_compiled.ainvoke(state)
+        result_or_dict = await app_compiled.ainvoke(state)
+        
+        if isinstance(result_or_dict, dict):
+            result = WorkflowState(**result_or_dict)
+        else:
+            result = result_or_dict
+            
         console.print(f"\n[green]Workflow completed: {result.current_step.value}[/green]")
 
 

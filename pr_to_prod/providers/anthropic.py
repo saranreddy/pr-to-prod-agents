@@ -43,9 +43,8 @@ class AnthropicProvider(BaseLLMProvider):
         response = await self.client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=temperature,
             system=system,
-            messages=conversation_messages,
+            messages=conversation_messages,  # type: ignore[arg-type]
             **kwargs,
         )
 

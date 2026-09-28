@@ -63,7 +63,7 @@ Create a concise summary comment.
 - **Total Tokens:** {state.token_usage.total_tokens:,}
 - **Estimated Cost:** ${state.token_usage.estimated_cost_usd:.2f}
 - **Retries:** {state.retry_count_total}
-- **Duration:** {(state.completed_at - state.started_at).total_seconds():.0f}s
+- **Duration:** {(state.completed_at - state.started_at).total_seconds() if state.completed_at and state.started_at else 0:.0f}s
 
 ### Links
 {f"- **Pull Request:** {state.code_change.pr_url}" if state.code_change else ""}
