@@ -3,8 +3,6 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -14,6 +12,7 @@ from pr_to_prod.config import get_settings
 from pr_to_prod.models import ApprovalDecision, WorkflowState, WorkflowStep
 from pr_to_prod.notifiers import create_notifier
 from pr_to_prod.orchestration import WorkflowOrchestrator
+from pr_to_prod.storage import CheckpointStorage
 from pr_to_prod.tools import MockGitHubBackend, MockGitHubTools, ToolGateway
 
 app = typer.Typer(help="PR-to-Production Agent Team CLI")
@@ -30,15 +29,15 @@ logger = logging.getLogger(__name__)
 @app.command()
 def run(
     issue_number: int = typer.Option(..., "--issue", help="GitHub issue number"),
-    repo_owner: Optional[str] = typer.Option(None, "--owner", help="Repository owner"),
-    repo_name: Optional[str] = typer.Option(None, "--repo", help="Repository name"),
+    repo_owner: str | None = typer.Option(None, "--owner", help="Repository owner"),
+    repo_name: str | None = typer.Option(None, "--repo", help="Repository name"),
     mock: bool = typer.Option(False, "--mock", help="Use mock GitHub backend"),
 ):
     """
     Start a PR-to-production workflow for a GitHub issue.
     """
     settings = get_settings()
-    
+
     owner = repo_owner or settings.target_repo_owner
     repo = repo_name or settings.target_repo_name
 
@@ -49,9 +48,7 @@ def run(
     asyncio.run(_run_workflow(issue_number, owner, repo, mock))
 
 
-async def _run_workflow(
-    issue_number: int, owner: str, repo: str, use_mock: bool
-) -> None:
+async def _run_workflow(issue_number: int, owner: str, repo: str, use_mock: bool) -> None:
     """Run the workflow asynchronously."""
     settings = get_settings()
     gateway = ToolGateway()
@@ -62,12 +59,12 @@ async def _run_workflow(
         MockGitHubTools(backend, gateway)
     else:
         from pr_to_prod.tools.github_tools import GitHubTools
-        
+
         token = settings.github_token
         if not token:
             console.print("[red]Error: GITHUB_TOKEN is required for real mode[/red]")
             raise typer.Exit(1)
-        
+
         GitHubTools(token, gateway)
 
     job_id = f"job-{uuid.uuid4().hex[:8]}"
@@ -86,17 +83,20 @@ async def _run_workflow(
     )
 
     orchestrator = WorkflowOrchestrator(settings, gateway)
-    
+
     app_compiled = orchestrator.graph.compile()
-    
+
     console.print(f"[green]Job {job_id} started[/green]")
 
     result = await app_compiled.ainvoke(state)
 
+    if isinstance(result, dict):
+        result = WorkflowState(**result)
+
     console.print("\n[bold]Workflow Result:[/bold]")
     console.print(f"Status: {result.current_step.value}")
     console.print(f"Messages: {len(result.messages)}")
-    
+
     for message in result.messages:
         console.print(f"  - {message}")
 
@@ -117,7 +117,7 @@ def demo(
     Run an end-to-end demo of the workflow.
     """
     console.print("[bold green]Running PR-to-Production Demo[/bold green]\n")
-    
+
     settings = get_settings()
     if not mock and not settings.github_token:
         console.print("[red]Error: GITHUB_TOKEN required for real mode[/red]")
@@ -155,6 +155,9 @@ async def _run_demo(use_mock: bool) -> None:
 
     result = await app_compiled.ainvoke(state)
 
+    if isinstance(result, dict):
+        result = WorkflowState(**result)
+
     console.print("\n[bold green]Demo Workflow Complete![/bold green]\n")
     console.print(f"Final Status: {result.current_step.value}")
     console.print(f"Steps Executed: {len(result.messages)}")
@@ -170,13 +173,13 @@ async def _run_demo(use_mock: bool) -> None:
     if result.current_step == WorkflowStep.AWAIT_APPROVAL:
         console.print("\n[yellow]Workflow paused at approval gate[/yellow]")
         console.print("[bold]Simulating approval...[/bold]")
-        
+
         state.approval = ApprovalDecision(
             approved=True,
             reviewer="demo-user",
             comments="Demo approval",
         )
-        
+
         result = await app_compiled.ainvoke(state)
         console.print(f"\n[green]Workflow completed: {result.current_step.value}[/green]")
 
@@ -204,7 +207,58 @@ def resume(
     console.print(f"Reviewer: {reviewer}")
 
     console.print("\n[yellow]Note: Resume functionality requires checkpoint persistence[/yellow]")
-    console.print("[yellow]This is a placeholder - full implementation would load from database[/yellow]")
+    console.print(
+        "[yellow]This is a placeholder - full implementation would load from database[/yellow]"
+    )
+
+
+async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:
+    """Resume a paused workflow."""
+    settings = get_settings()
+    storage = CheckpointStorage(settings.database_url)
+
+    state_dict = await storage.load_checkpoint(job_id)
+
+    if not state_dict:
+        console.print(f"[red]Error: No checkpoint found for job {job_id}[/red]")
+        raise typer.Exit(1)
+
+    state = WorkflowState(**state_dict)
+
+    if state.current_step != WorkflowStep.AWAIT_APPROVAL:
+        console.print(
+            f"[yellow]Warning: Job is at step {state.current_step.value}, not awaiting approval[/yellow]"
+        )
+
+    state.approval = ApprovalDecision(
+        approved=approve,
+        reviewer=reviewer,
+        comments="Approval via CLI resume",
+    )
+
+    gateway = ToolGateway()
+
+    if "mock" in settings.llm_provider or not settings.github_token:
+        backend = MockGitHubBackend()
+        backend.init_repo(state.repo_owner, state.repo_name)
+        MockGitHubTools(backend, gateway)
+    else:
+        from pr_to_prod.tools.github_tools import GitHubTools
+
+        GitHubTools(settings.github_token, gateway)
+
+    orchestrator = WorkflowOrchestrator(settings, gateway)
+    app_compiled = orchestrator.graph.compile()
+
+    console.print(f"\n[green]Resuming workflow for job {job_id}...[/green]")
+
+    result = await app_compiled.ainvoke(state)
+
+    console.print("\n[bold]Workflow Result:[/bold]")
+    console.print(f"Status: {result.current_step.value}")
+
+    for message in result.messages[-5:]:
+        console.print(f"  {message}")
 
 
 if __name__ == "__main__":

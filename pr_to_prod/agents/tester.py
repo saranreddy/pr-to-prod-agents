@@ -74,7 +74,7 @@ Only output the code, no explanations.
 
         passed = ci_status["state"] in ["success", "pending"]
         failure_details = []
-        
+
         if not passed:
             failure_details = [
                 f"{s['context']}: {s['description']}"

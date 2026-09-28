@@ -90,7 +90,7 @@ Create a detailed implementation plan.
                 }
 
         plan = Plan(**plan_data)
-        
+
         logger.info(f"Planner: Created plan with {len(plan.files_to_change)} files to change")
 
         return {"plan": plan}

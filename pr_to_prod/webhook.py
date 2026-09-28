@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -19,8 +19,8 @@ class WebhookPayload(BaseModel):
     """GitHub webhook payload."""
 
     action: str
-    issue: Optional[dict[str, Any]] = None
-    repository: Optional[dict[str, Any]] = None
+    issue: dict[str, Any] | None = None
+    repository: dict[str, Any] | None = None
 
 
 def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
@@ -29,9 +29,7 @@ def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
         logger.warning("No webhook secret configured, skipping verification")
         return True
 
-    expected_signature = (
-        "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    )
+    expected_signature = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected_signature, signature)
 
 
@@ -45,15 +43,15 @@ async def health() -> dict[str, str]:
 async def github_webhook(
     request: Request,
     x_github_event: str = Header(...),
-    x_hub_signature_256: Optional[str] = Header(None),
+    x_hub_signature_256: str | None = Header(None),
 ) -> dict[str, str]:
     """
     Handle GitHub webhook events.
-    
+
     Listens for issue events with the 'agent:build' label.
     """
     settings = get_settings()
-    
+
     body = await request.body()
 
     if settings.github_webhook_secret and x_hub_signature_256:

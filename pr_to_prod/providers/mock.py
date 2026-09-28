@@ -28,7 +28,7 @@ class MockProvider(BaseLLMProvider):
         self.call_count += 1
 
         last_message = messages[-1].content if messages else ""
-        
+
         if "plan" in last_message.lower():
             content = self._generate_plan_response()
         elif "code" in last_message.lower() or "implement" in last_message.lower():

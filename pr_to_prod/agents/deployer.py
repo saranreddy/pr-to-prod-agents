@@ -60,8 +60,6 @@ class DeployerAgent(BaseAgent):
             deployment_url=f"https://staging.{state.repo_name}.example.com",
         )
 
-        logger.info(
-            f"Deployer: Deployment {'successful' if health_check_passed else 'failed'}"
-        )
+        logger.info(f"Deployer: Deployment {'successful' if health_check_passed else 'failed'}")
 
         return {"deploy_result": deploy_result}

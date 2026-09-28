@@ -1,6 +1,5 @@
 """Notifier implementations for human approval requests."""
 
-import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
@@ -37,9 +36,7 @@ class ConsoleNotifier(BaseNotifier):
         print(
             f"Review: {'Approved' if state.review_result and state.review_result.approved else 'N/A'}"
         )
-        print(
-            f"Tests: {'Passed' if state.test_result and state.test_result.passed else 'N/A'}"
-        )
+        print(f"Tests: {'Passed' if state.test_result and state.test_result.passed else 'N/A'}")
         print(f"\nTo approve: pr-to-prod resume --job-id {state.job_id} --approve")
         print(f"To reject:  pr-to-prod resume --job-id {state.job_id} --reject")
         print("=" * 80 + "\n")
@@ -70,9 +67,11 @@ class SlackNotifier(BaseNotifier):
                         },
                         {
                             "type": "mrkdwn",
-                            "text": f"*PR:*\n<{state.code_change.pr_url}|View PR>"
-                            if state.code_change
-                            else "*PR:*\nN/A",
+                            "text": (
+                                f"*PR:*\n<{state.code_change.pr_url}|View PR>"
+                                if state.code_change
+                                else "*PR:*\nN/A"
+                            ),
                         },
                         {
                             "type": "mrkdwn",
@@ -118,7 +117,7 @@ class SNSNotifier(BaseNotifier):
     async def send_approval_request(self, state: WorkflowState) -> None:
         """Send approval request via SNS."""
         subject = f"Approval Required: Issue #{state.issue_number}"
-        
+
         message = f"""
 Human Approval Required
 

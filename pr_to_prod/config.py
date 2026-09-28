@@ -1,8 +1,7 @@
 """Configuration management using Pydantic Settings."""
 
-from typing import Literal, Optional
+from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,60 +19,60 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     llm_provider: Literal["anthropic", "bedrock", "mock"] = "mock"
-    
-    anthropic_api_key: Optional[str] = None
-    
+
+    anthropic_api_key: str | None = None
+
     aws_region: str = "us-east-1"
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
     bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-    
+
     planner_model: str = "claude-3-5-haiku-20241022"
     coder_model: str = "claude-3-5-sonnet-20241022"
     reviewer_model: str = "claude-3-5-sonnet-20241022"
     tester_model: str = "claude-3-5-sonnet-20241022"
     deployer_model: str = "claude-3-5-haiku-20241022"
     reporter_model: str = "claude-3-5-haiku-20241022"
-    
+
     max_tokens_per_job: int = 500000
     max_retries_coder: int = 3
     max_retries_reviewer: int = 3
-    
-    github_token: Optional[str] = None
-    github_webhook_secret: Optional[str] = None
-    
-    planner_github_token: Optional[str] = None
-    coder_github_token: Optional[str] = None
-    reviewer_github_token: Optional[str] = None
-    tester_github_token: Optional[str] = None
-    deployer_github_token: Optional[str] = None
-    reporter_github_token: Optional[str] = None
-    
+
+    github_token: str | None = None
+    github_webhook_secret: str | None = None
+
+    planner_github_token: str | None = None
+    coder_github_token: str | None = None
+    reviewer_github_token: str | None = None
+    tester_github_token: str | None = None
+    deployer_github_token: str | None = None
+    reporter_github_token: str | None = None
+
     target_repo_owner: str = "example-org"
     target_repo_name: str = "sample-app"
     default_base_branch: str = "main"
-    
+
     database_url: str = "sqlite:///checkpoints.db"
-    
+
     notifier_type: Literal["console", "slack", "sns"] = "console"
-    slack_webhook_url: Optional[str] = None
-    sns_topic_arn: Optional[str] = None
-    
+    slack_webhook_url: str | None = None
+    sns_topic_arn: str | None = None
+
     langfuse_enabled: bool = False
-    langfuse_public_key: Optional[str] = None
-    langfuse_secret_key: Optional[str] = None
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
-    
+
     webhook_host: str = "0.0.0.0"
     webhook_port: int = 8000
-    
+
     sandbox_type: Literal["docker", "fargate"] = "docker"
     docker_image: str = "python:3.11-slim"
-    
+
     health_check_interval_seconds: int = 30
     health_check_duration_minutes: int = 5
     error_rate_threshold_percent: float = 5.0
-    
+
     eval_output_dir: str = "eval_results"
 
     def get_agent_token(self, role: str) -> str:

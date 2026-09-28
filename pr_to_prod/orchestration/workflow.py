@@ -4,9 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Literal
 
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.graph import END, StateGraph
 
 from pr_to_prod.agents import (
     CoderAgent,
@@ -19,6 +17,7 @@ from pr_to_prod.agents import (
 from pr_to_prod.config import Settings
 from pr_to_prod.models import WorkflowState, WorkflowStep
 from pr_to_prod.providers import create_llm_provider
+from pr_to_prod.storage import CheckpointStorage
 from pr_to_prod.tools import ToolGateway
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 class WorkflowOrchestrator:
     """
     LangGraph-based orchestrator for the PR-to-production workflow.
-    
+
     Implements:
     - Supervisor pattern with conditional routing
     - Human-in-the-loop approval gate
@@ -39,6 +38,7 @@ class WorkflowOrchestrator:
         self.settings = settings
         self.gateway = gateway
         self.llm_provider = create_llm_provider(settings)
+        self.storage = CheckpointStorage(settings.database_url)
 
         self.planner = PlannerAgent(
             llm_provider=self.llm_provider,
@@ -138,24 +138,28 @@ class WorkflowOrchestrator:
         """Execute planner agent."""
         logger.info("Orchestrator: Executing PLAN step")
         state.current_step = WorkflowStep.PLAN
-        
+
         try:
             result = await self.planner.execute(state)
             state.plan = result["plan"]
-            state.add_message(f"Plan created with {len(state.plan.files_to_change)} files to change")
+            state.add_message(
+                f"Plan created with {len(state.plan.files_to_change)} files to change"
+            )
             self._track_tokens(state, result)
         except Exception as e:
             logger.error(f"Plan step failed: {e}")
             state.error = str(e)
             state.current_step = WorkflowStep.FAILED
-        
+
+        await self.storage.save_checkpoint(state.job_id, state.model_dump())
+
         return state
 
     async def _code_node(self, state: WorkflowState) -> WorkflowState:
         """Execute coder agent."""
         logger.info("Orchestrator: Executing CODE step")
         state.current_step = WorkflowStep.CODE
-        
+
         try:
             result = await self.coder.execute(state)
             state.code_change = result["code_change"]
@@ -168,14 +172,16 @@ class WorkflowOrchestrator:
             state.error = str(e)
             if state.is_retry_exhausted():
                 state.current_step = WorkflowStep.FAILED
-        
+
+        await self.storage.save_checkpoint(state.job_id, state.model_dump())
+
         return state
 
     async def _review_node(self, state: WorkflowState) -> WorkflowState:
         """Execute reviewer agent."""
         logger.info("Orchestrator: Executing REVIEW step")
         state.current_step = WorkflowStep.REVIEW
-        
+
         try:
             result = await self.reviewer.execute(state)
             state.review_result = result["review_result"]
@@ -187,14 +193,14 @@ class WorkflowOrchestrator:
             logger.error(f"Review step failed: {e}")
             state.error = str(e)
             state.current_step = WorkflowStep.FAILED
-        
+
         return state
 
     async def _test_node(self, state: WorkflowState) -> WorkflowState:
         """Execute tester agent."""
         logger.info("Orchestrator: Executing TEST step")
         state.current_step = WorkflowStep.TEST
-        
+
         try:
             result = await self.tester.execute(state)
             state.test_result = result["test_result"]
@@ -208,7 +214,7 @@ class WorkflowOrchestrator:
             state.error = str(e)
             if state.is_retry_exhausted():
                 state.current_step = WorkflowStep.FAILED
-        
+
         return state
 
     async def _await_approval_node(self, state: WorkflowState) -> WorkflowState:
@@ -216,14 +222,16 @@ class WorkflowOrchestrator:
         logger.info("Orchestrator: AWAITING HUMAN APPROVAL")
         state.current_step = WorkflowStep.AWAIT_APPROVAL
         state.add_message("Awaiting human approval...")
-        
+
+        await self.storage.save_checkpoint(state.job_id, state.model_dump())
+
         return state
 
     async def _deploy_node(self, state: WorkflowState) -> WorkflowState:
         """Execute deployer agent."""
         logger.info("Orchestrator: Executing DEPLOY step")
         state.current_step = WorkflowStep.DEPLOY
-        
+
         try:
             result = await self.deployer.execute(state)
             state.deploy_result = result["deploy_result"]
@@ -236,14 +244,14 @@ class WorkflowOrchestrator:
             logger.error(f"Deploy step failed: {e}")
             state.error = str(e)
             state.current_step = WorkflowStep.FAILED
-        
+
         return state
 
     async def _report_node(self, state: WorkflowState) -> WorkflowState:
         """Execute reporter agent."""
         logger.info("Orchestrator: Executing REPORT step")
         state.current_step = WorkflowStep.REPORT
-        
+
         try:
             result = await self.reporter.execute(state)
             state.add_message("Final report posted to issue")
@@ -254,12 +262,10 @@ class WorkflowOrchestrator:
             logger.error(f"Report step failed: {e}")
             state.error = str(e)
             state.current_step = WorkflowStep.FAILED
-        
+
         return state
 
-    def _after_code_router(
-        self, state: WorkflowState
-    ) -> Literal["review", "failed"]:
+    def _after_code_router(self, state: WorkflowState) -> Literal["review", "failed"]:
         """Route after code step."""
         if state.error and state.is_retry_exhausted():
             return "failed"
@@ -267,9 +273,7 @@ class WorkflowOrchestrator:
             return "review"
         return "failed"
 
-    def _after_review_router(
-        self, state: WorkflowState
-    ) -> Literal["test", "code", "failed"]:
+    def _after_review_router(self, state: WorkflowState) -> Literal["test", "code", "failed"]:
         """Route after review step."""
         if state.error:
             return "failed"
@@ -295,17 +299,13 @@ class WorkflowOrchestrator:
         else:
             return "failed"
 
-    def _after_approval_router(
-        self, state: WorkflowState
-    ) -> Literal["deploy", "failed"]:
+    def _after_approval_router(self, state: WorkflowState) -> Literal["deploy", "failed"]:
         """Route after approval step."""
         if state.approval and state.approval.approved:
             return "deploy"
         return "failed"
 
-    def _after_deploy_router(
-        self, state: WorkflowState
-    ) -> Literal["report", "failed"]:
+    def _after_deploy_router(self, state: WorkflowState) -> Literal["report", "failed"]:
         """Route after deploy step."""
         if state.deploy_result and state.deploy_result.deployed:
             return "report"
@@ -314,11 +314,3 @@ class WorkflowOrchestrator:
     def _track_tokens(self, state: WorkflowState, result: dict[str, Any]) -> None:
         """Track token usage from agent results."""
         pass
-
-    def get_checkpointer(self) -> Any:
-        """Get the appropriate checkpointer based on database URL."""
-        if "postgresql" in self.settings.database_url or "postgres" in self.settings.database_url:
-            return PostgresSaver.from_conn_string(self.settings.database_url)
-        else:
-            db_path = self.settings.database_url.replace("sqlite:///", "")
-            return SqliteSaver.from_conn_string(db_path)

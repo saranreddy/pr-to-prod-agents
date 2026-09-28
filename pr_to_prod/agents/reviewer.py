@@ -71,6 +71,7 @@ Provide your review.
         response = await self.call_llm(system_prompt, user_prompt)
 
         import json
+
         try:
             review_data = json.loads(response)
         except json.JSONDecodeError:

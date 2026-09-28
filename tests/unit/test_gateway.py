@@ -1,5 +1,7 @@
 """Tests for the tool gateway permission enforcement."""
 
+from typing import Any
+
 import pytest
 
 from pr_to_prod.models import AgentPermission, AgentRole
@@ -89,16 +91,22 @@ async def test_audit_log_denied(gateway_with_tool):
 
 
 @pytest.mark.asyncio
-async def test_sensitive_params_sanitized(gateway_with_tool):
+async def test_sensitive_params_sanitized(gateway):
     """Test that sensitive parameters are redacted in logs."""
-    await gateway_with_tool.call_tool(
+
+    async def test_tool_with_token(**params: Any) -> str:
+        return "processed"
+
+    gateway.register_tool("test_tool_token", AgentPermission.READ_FILE, test_tool_with_token)
+
+    await gateway.call_tool(
         agent_role=AgentRole.PLANNER,
-        tool_name="test_tool",
+        tool_name="test_tool_token",
         value="test",
         github_token="secret123",
     )
 
-    logs = gateway_with_tool.get_audit_log()
+    logs = gateway.get_audit_log()
     assert "secret123" not in str(logs[0].params)
     assert "***REDACTED***" in str(logs[0].params)
 

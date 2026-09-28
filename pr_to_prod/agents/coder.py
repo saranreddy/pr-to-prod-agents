@@ -25,7 +25,9 @@ class CoderAgent(BaseAgent):
         if not state.plan:
             raise ValueError("No plan available for coder agent")
 
-        branch_name = f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
+        branch_name = (
+            f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
+        )
         branch_name = "".join(c for c in branch_name if c.isalnum() or c in ["-", "/"])
 
         await self.call_tool(

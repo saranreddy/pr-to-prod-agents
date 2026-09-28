@@ -1,7 +1,7 @@
 """Base LLM provider interface."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -21,7 +21,7 @@ class LLMResponse(BaseModel):
     completion_tokens: int
     total_tokens: int
     model: str
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
 
 
 class BaseLLMProvider(ABC):

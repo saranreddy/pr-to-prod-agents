@@ -1,7 +1,7 @@
 """Mock GitHub backend for testing without real GitHub API."""
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pr_to_prod.models import AgentPermission
 from pr_to_prod.tools.gateway import ToolGateway
@@ -75,15 +75,17 @@ class MockGitHubTools:
         key = f"{owner}/{repo}"
         if key not in self.backend.files:
             return []
-        
+
         results = []
         for path, content in self.backend.files[key].items():
             if query.lower() in content.lower() or query.lower() in path.lower():
-                results.append({
-                    "path": path,
-                    "score": 1.0,
-                    "sha": "mock-sha-" + path.replace("/", "-"),
-                })
+                results.append(
+                    {
+                        "path": path,
+                        "score": 1.0,
+                        "sha": "mock-sha-" + path.replace("/", "-"),
+                    }
+                )
         return results
 
     async def read_file(self, owner: str, repo: str, path: str, ref: str = "main") -> str:
@@ -108,10 +110,10 @@ class MockGitHubTools:
         key = f"{owner}/{repo}"
         if key not in self.backend.files:
             raise ValueError(f"Repository {key} not found")
-        
+
         self.backend.files[key][path] = content
         logger.info(f"Mock: wrote file {path} to branch {branch}")
-        
+
         return {
             "path": path,
             "sha": f"mock-sha-{path}-{len(content)}",
@@ -125,11 +127,11 @@ class MockGitHubTools:
         key = f"{owner}/{repo}"
         if key not in self.backend.branches:
             raise ValueError(f"Repository {key} not found")
-        
+
         if branch not in self.backend.branches[key]:
             self.backend.branches[key].append(branch)
             logger.info(f"Mock: created branch {branch}")
-        
+
         return {
             "branch": branch,
             "sha": f"mock-sha-{branch}",
@@ -148,10 +150,10 @@ class MockGitHubTools:
         key = f"{owner}/{repo}"
         if key not in self.backend.prs:
             raise ValueError(f"Repository {key} not found")
-        
+
         pr_number = self.backend.pr_counter
         self.backend.pr_counter += 1
-        
+
         pr = {
             "number": pr_number,
             "url": f"https://github.com/{owner}/{repo}/pull/{pr_number}",
@@ -164,7 +166,7 @@ class MockGitHubTools:
         }
         self.backend.prs[key].append(pr)
         logger.info(f"Mock: created PR #{pr_number}")
-        
+
         return {
             "number": pr_number,
             "url": pr["url"],
@@ -178,14 +180,14 @@ class MockGitHubTools:
         """Add a comment to a pull request."""
         key = f"{owner}/{repo}"
         pr = self._find_pr(key, pr_number)
-        
+
         comment_obj = {
             "id": len(pr["comments"]) + 1,
             "body": comment,
         }
         pr["comments"].append(comment_obj)
         logger.info(f"Mock: added comment to PR #{pr_number}")
-        
+
         return {
             "id": comment_obj["id"],
             "url": f"{pr['url']}#issuecomment-{comment_obj['id']}",
@@ -197,23 +199,25 @@ class MockGitHubTools:
         repo: str,
         pr_number: int,
         event: str,
-        body: Optional[str] = None,
+        body: str | None = None,
     ) -> dict[str, Any]:
         """Submit a review on a pull request."""
         key = f"{owner}/{repo}"
         pr = self._find_pr(key, pr_number)
-        
+
         review_id = len(pr.get("reviews", [])) + 1
         if "reviews" not in pr:
             pr["reviews"] = []
-        
-        pr["reviews"].append({
-            "id": review_id,
-            "event": event,
-            "body": body or "",
-        })
+
+        pr["reviews"].append(
+            {
+                "id": review_id,
+                "event": event,
+                "body": body or "",
+            }
+        )
         logger.info(f"Mock: submitted {event} review on PR #{pr_number}")
-        
+
         return {
             "id": review_id,
             "state": event,
@@ -225,11 +229,11 @@ class MockGitHubTools:
         """Merge a pull request."""
         key = f"{owner}/{repo}"
         pr = self._find_pr(key, pr_number)
-        
+
         pr["state"] = "closed"
         pr["merged"] = True
         logger.info(f"Mock: merged PR #{pr_number}")
-        
+
         return {
             "merged": True,
             "sha": f"mock-merge-sha-{pr_number}",
@@ -265,14 +269,14 @@ class MockGitHubTools:
             self.backend.issues[key] = {}
         if issue_number not in self.backend.issues[key]:
             self.backend.issues[key][issue_number] = []
-        
+
         comment_obj = {
             "id": len(self.backend.issues[key][issue_number]) + 1,
             "body": comment,
         }
         self.backend.issues[key][issue_number].append(comment_obj)
         logger.info(f"Mock: added comment to issue #{issue_number}")
-        
+
         return {
             "id": comment_obj["id"],
             "url": f"https://github.com/{owner}/{repo}/issues/{issue_number}#issuecomment-{comment_obj['id']}",
@@ -282,9 +286,9 @@ class MockGitHubTools:
         """Find a PR by number."""
         if key not in self.backend.prs:
             raise ValueError(f"Repository {key} not found")
-        
+
         for pr in self.backend.prs[key]:
             if pr["number"] == pr_number:
                 return pr
-        
+
         raise ValueError(f"PR #{pr_number} not found")

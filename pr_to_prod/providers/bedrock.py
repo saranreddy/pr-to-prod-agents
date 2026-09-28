@@ -93,9 +93,7 @@ class BedrockProvider(BaseLLMProvider):
 
     def estimate_cost(self, prompt_tokens: int, completion_tokens: int, model: str) -> float:
         """Estimate cost based on Bedrock pricing."""
-        pricing = self.PRICING.get(
-            model, self.PRICING["anthropic.claude-3-5-sonnet-20241022-v2:0"]
-        )
+        pricing = self.PRICING.get(model, self.PRICING["anthropic.claude-3-5-sonnet-20241022-v2:0"])
         input_cost = prompt_tokens * pricing["input"]
         output_cost = completion_tokens * pricing["output"]
         return input_cost + output_cost

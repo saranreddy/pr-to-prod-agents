@@ -1,7 +1,7 @@
 """GitHub tools for repository operations."""
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from github import Github
 from github.GithubException import GithubException
@@ -88,7 +88,7 @@ class GitHubTools:
         """Write file to repository."""
         try:
             repository = self.github.get_repo(f"{owner}/{repo}")
-            
+
             try:
                 file_content = repository.get_contents(path, ref=branch)
                 if isinstance(file_content, list):
@@ -184,7 +184,7 @@ class GitHubTools:
         repo: str,
         pr_number: int,
         event: str,
-        body: Optional[str] = None,
+        body: str | None = None,
     ) -> dict[str, Any]:
         """Submit a review on a pull request."""
         try:
@@ -216,9 +216,7 @@ class GitHubTools:
             logger.error(f"Failed to merge PR {pr_number}: {e}")
             raise
 
-    async def read_ci_status(
-        self, owner: str, repo: str, ref: str
-    ) -> dict[str, Any]:
+    async def read_ci_status(self, owner: str, repo: str, ref: str) -> dict[str, Any]:
         """Get CI status for a reference."""
         try:
             repository = self.github.get_repo(f"{owner}/{repo}")

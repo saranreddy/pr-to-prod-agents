@@ -1,10 +1,6 @@
 """Tests for workflow routing logic."""
 
-import pytest
-
 from pr_to_prod.models import (
-    CodeChange,
-    Plan,
     ReviewResult,
     TestResult,
     WorkflowState,

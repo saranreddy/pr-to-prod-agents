@@ -1,8 +1,7 @@
 """Core data models for the PR-to-Production agent system."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -106,9 +105,9 @@ class CodeChange(BaseModel):
 
     branch_name: str
     files_changed: list[str]
-    pr_number: Optional[int] = None
-    pr_url: Optional[str] = None
-    commit_sha: Optional[str] = None
+    pr_number: int | None = None
+    pr_url: str | None = None
+    commit_sha: str | None = None
 
 
 class ReviewResult(BaseModel):
@@ -128,7 +127,7 @@ class TestResult(BaseModel):
     tests_passed: int
     tests_failed: int
     failure_details: list[str] = Field(default_factory=list)
-    ci_run_url: Optional[str] = None
+    ci_run_url: str | None = None
 
 
 class DeployResult(BaseModel):
@@ -138,8 +137,8 @@ class DeployResult(BaseModel):
     environment: str
     health_check_passed: bool
     rolled_back: bool = False
-    error_rate: Optional[float] = None
-    deployment_url: Optional[str] = None
+    error_rate: float | None = None
+    deployment_url: str | None = None
 
 
 class ApprovalDecision(BaseModel):
@@ -147,8 +146,8 @@ class ApprovalDecision(BaseModel):
 
     approved: bool
     reviewer: str
-    comments: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    comments: str | None = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class TokenUsage(BaseModel):
@@ -173,36 +172,35 @@ class WorkflowState(BaseModel):
     base_branch: str = "main"
 
     current_step: WorkflowStep = WorkflowStep.PLAN
-    error: Optional[str] = None
-    
-    plan: Optional[Plan] = None
-    code_change: Optional[CodeChange] = None
-    review_result: Optional[ReviewResult] = None
-    test_result: Optional[TestResult] = None
-    approval: Optional[ApprovalDecision] = None
-    deploy_result: Optional[DeployResult] = None
-    
+    error: str | None = None
+
+    plan: Plan | None = None
+    code_change: CodeChange | None = None
+    review_result: ReviewResult | None = None
+    test_result: TestResult | None = None
+    approval: ApprovalDecision | None = None
+    deploy_result: DeployResult | None = None
+
     retry_count_coder: int = 0
     retry_count_reviewer: int = 0
     retry_count_total: int = 0
-    
+
     max_retries_coder: int = 3
     max_retries_reviewer: int = 3
     max_retries_total: int = 10
-    
+
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
-    
-    started_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-    
+
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
+
     messages: list[str] = Field(default_factory=list)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = {"arbitrary_types_allowed": True}
 
     def add_message(self, message: str) -> None:
         """Add a message to the workflow log."""
-        self.messages.append(f"[{datetime.utcnow().isoformat()}] {message}")
+        self.messages.append(f"[{datetime.now(UTC).isoformat()}] {message}")
 
     def is_retry_exhausted(self) -> bool:
         """Check if retry limits are exhausted."""

@@ -1,8 +1,9 @@
 """Tool gateway with permission enforcement and audit logging."""
 
 import logging
-from datetime import datetime
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from pr_to_prod.models import AGENT_PERMISSIONS, AgentPermission, AgentRole
 
@@ -20,8 +21,8 @@ class AuditLog:
         permission: AgentPermission,
         allowed: bool,
         params: dict[str, Any],
-        result: Optional[str] = None,
-        error: Optional[str] = None,
+        result: str | None = None,
+        error: str | None = None,
     ):
         self.timestamp = timestamp
         self.agent_role = agent_role
@@ -44,7 +45,7 @@ class AuditLog:
 class ToolGateway:
     """
     Central gateway for all tool calls with permission enforcement.
-    
+
     This ensures least-privilege access: each agent can only use tools
     that match their assigned permissions.
     """
@@ -76,15 +77,15 @@ class ToolGateway:
     ) -> Any:
         """
         Call a tool with permission checking and audit logging.
-        
+
         Args:
             agent_role: The role of the agent making the call
             tool_name: Name of the tool to call
             **params: Tool parameters
-            
+
         Returns:
             Tool execution result
-            
+
         Raises:
             PermissionError: If the agent doesn't have permission
             ValueError: If the tool doesn't exist
@@ -95,11 +96,11 @@ class ToolGateway:
             raise ValueError(error)
 
         required_permission, handler = self.tools[tool_name]
-        
+
         allowed = self.check_permission(agent_role, required_permission)
-        
-        timestamp = datetime.utcnow()
-        
+
+        timestamp = datetime.now(UTC)
+
         if not allowed:
             audit_entry = AuditLog(
                 timestamp=timestamp,
@@ -112,7 +113,7 @@ class ToolGateway:
             )
             self.audit_logs.append(audit_entry)
             logger.warning(str(audit_entry))
-            
+
             raise PermissionError(
                 f"Agent role '{agent_role.value}' does not have permission "
                 f"'{required_permission.value}' required for tool '{tool_name}'"
@@ -120,7 +121,7 @@ class ToolGateway:
 
         try:
             result = await handler(**params)
-            
+
             audit_entry = AuditLog(
                 timestamp=timestamp,
                 agent_role=agent_role,
@@ -132,7 +133,7 @@ class ToolGateway:
             )
             self.audit_logs.append(audit_entry)
             logger.info(str(audit_entry))
-            
+
             return result
 
         except Exception as e:
@@ -153,7 +154,9 @@ class ToolGateway:
         """Sanitize parameters for logging (remove sensitive data)."""
         sanitized = {}
         for key, value in params.items():
-            if any(sensitive in key.lower() for sensitive in ["token", "secret", "password", "key"]):
+            if any(
+                sensitive in key.lower() for sensitive in ["token", "secret", "password", "key"]
+            ):
                 sanitized[key] = "***REDACTED***"
             elif isinstance(value, str) and len(value) > 100:
                 sanitized[key] = value[:100] + "..."
