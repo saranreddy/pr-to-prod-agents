@@ -19,7 +19,6 @@ from pr_to_prod.tools.mock_github import MockGitHubBackend, MockGitHubTools
 @pytest.mark.asyncio
 async def test_deployer_rolls_back_on_simulated_unhealthy():
     """Test that deployer rolls back when simulate_unhealthy flag is set."""
-    settings = get_settings()
     gateway = ToolGateway()
 
     backend = MockGitHubBackend()

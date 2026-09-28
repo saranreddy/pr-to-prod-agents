@@ -6,7 +6,6 @@ import pytest
 
 from pr_to_prod.sandbox.runner import (
     DockerSandboxRunner,
-    SandboxResult,
     SubprocessSandboxRunner,
     get_sandbox_runner,
 )
