@@ -40,12 +40,15 @@ class AnthropicProvider(BaseLLMProvider):
             if m.role in ["user", "assistant"]
         ]
 
+        kwargs_filtered = {**kwargs}
+        if system:
+            kwargs_filtered["system"] = system
+
         response = await self.client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=system,
             messages=conversation_messages,  # type: ignore[arg-type]
-            **kwargs,
+            **kwargs_filtered,
         )
 
         content = ""

@@ -58,7 +58,7 @@ class ToolGateway:
         self,
         name: str,
         permission: AgentPermission,
-        handler: Callable,
+        handler: Callable[..., Any],
     ) -> None:
         """Register a tool with its required permission."""
         self.tools[name] = (permission, handler)
