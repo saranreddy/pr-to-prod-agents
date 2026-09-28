@@ -112,7 +112,7 @@ class EvaluationHarness:
     async def _evaluate_issue(self, issue: dict[str, Any]) -> EvaluationResult:
         """Evaluate a single issue."""
         settings = get_settings()
-        gateway = ToolGateway()  # type: ignore[no-untyped-call]
+        gateway = ToolGateway()
 
         backend = MockGitHubBackend()
         backend.init_repo("example-org", "sample-app")

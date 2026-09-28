@@ -56,7 +56,7 @@ async def _run_workflow(
 ) -> None:
     """Run the workflow asynchronously."""
     settings = get_settings()
-    gateway = ToolGateway()  # type: ignore[no-untyped-call]
+    gateway = ToolGateway()
 
     if use_mock:
         backend = MockGitHubBackend()
@@ -136,7 +136,7 @@ def demo(
 async def _run_demo(use_mock: bool) -> None:
     """Run the demo workflow."""
     settings = get_settings()
-    gateway = ToolGateway()  # type: ignore[no-untyped-call]
+    gateway = ToolGateway()
 
     backend = MockGitHubBackend()
     backend.init_repo("example-org", "sample-app")
@@ -249,7 +249,7 @@ async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:
         comments="Approval via CLI resume",
     )
 
-    gateway = ToolGateway()  # type: ignore[no-untyped-call]
+    gateway = ToolGateway()
 
     if "mock" in settings.llm_provider or not settings.github_token:
         backend = MockGitHubBackend()
