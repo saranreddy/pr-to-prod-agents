@@ -32,9 +32,7 @@ class CoderAgent(BaseAgent):
             pr_url = state.code_change.pr_url
             logger.info(f"Coder: Reusing existing branch {branch_name} and PR #{pr_number}")
         else:
-            branch_name = (
-                f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
-            )
+            branch_name = f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
             branch_name = "".join(c for c in branch_name if c.isalnum() or c in ["-", "/"])
 
             await self.call_tool(

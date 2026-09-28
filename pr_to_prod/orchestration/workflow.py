@@ -225,7 +225,7 @@ class WorkflowOrchestrator:
         """Human approval gate - this is where the workflow pauses."""
         logger.info("Orchestrator: AWAITING HUMAN APPROVAL")
         state.current_step = WorkflowStep.AWAIT_APPROVAL
-        
+
         # Auto-approve in demo mode
         if state.auto_approve_demo and not state.approval:
             logger.info("Orchestrator: Auto-approving in demo mode")

@@ -44,9 +44,9 @@ async def test_end_to_end_workflow_with_auto_approval():
         result = WorkflowState(**result)
 
     # Verify workflow completed successfully
-    assert result.current_step == WorkflowStep.COMPLETED, (
-        f"Workflow should complete, got {result.current_step.value}"
-    )
+    assert (
+        result.current_step == WorkflowStep.COMPLETED
+    ), f"Workflow should complete, got {result.current_step.value}"
 
     # Verify all steps were executed in order
     assert result.plan is not None, "Plan should be created"
@@ -140,9 +140,9 @@ async def test_workflow_step_order():
 
     # All steps should be present
     expected_steps = ["PLAN", "CODE", "REVIEW", "TEST", "APPROVAL", "DEPLOY", "REPORT"]
-    assert steps_completed == expected_steps, (
-        f"Steps executed: {steps_completed}, expected: {expected_steps}"
-    )
+    assert (
+        steps_completed == expected_steps
+    ), f"Steps executed: {steps_completed}, expected: {expected_steps}"
 
 
 @pytest.mark.asyncio
@@ -175,9 +175,9 @@ async def test_workflow_reuses_pr_on_retry():
         result = WorkflowState(**result)
 
     # Only one PR should have been created
-    assert len(backend.prs["test-org/test-repo"]) == 1, (
-        f"Should create exactly 1 PR, created {len(backend.prs['test-org/test-repo'])}"
-    )
+    assert (
+        len(backend.prs["test-org/test-repo"]) == 1
+    ), f"Should create exactly 1 PR, created {len(backend.prs['test-org/test-repo'])}"
 
     # Verify the PR number is consistent in result
     assert result.code_change is not None

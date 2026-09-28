@@ -43,7 +43,7 @@ Include key metrics and outcomes.
 **Tests:** {"Passed" if state.test_result and state.test_result.passed else "N/A"}
 
 **Deployment:** {
-    "ROLLED BACK - " + state.deploy_result.rollback_reason
+    ("ROLLED BACK - " + (state.deploy_result.rollback_reason or "Unknown reason"))
     if state.deploy_result and state.deploy_result.rolled_back
     else "Successful" if state.deploy_result and state.deploy_result.deployed else "N/A"
 }
