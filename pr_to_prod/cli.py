@@ -32,7 +32,7 @@ def run(
     repo_owner: str | None = typer.Option(None, "--owner", help="Repository owner"),
     repo_name: str | None = typer.Option(None, "--repo", help="Repository name"),
     mock: bool = typer.Option(False, "--mock", help="Use mock GitHub backend"),
-) -> None:  # type: ignore[no-untyped-def]
+) -> None:
     """
     Start a PR-to-production workflow for a GitHub issue.
     """
@@ -203,7 +203,7 @@ def resume(
     approve: bool = typer.Option(False, "--approve", help="Approve the workflow"),
     reject: bool = typer.Option(False, "--reject", help="Reject the workflow"),
     reviewer: str = typer.Option("human", "--reviewer", help="Reviewer name"),
-) -> None:  # type: ignore[no-untyped-def]
+) -> None:
     """
     Resume a paused workflow with an approval decision.
     """
@@ -225,7 +225,7 @@ def resume(
     )
 
 
-async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:  # type: ignore[no-untyped-def]
+async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:
     """Resume a paused workflow."""
     settings = get_settings()
     storage = CheckpointStorage(settings.database_url)
