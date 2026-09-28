@@ -50,9 +50,9 @@ class ToolGateway:
     that match their assigned permissions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.audit_logs: list[AuditLog] = []
-        self.tools: dict[str, tuple[AgentPermission, Callable]] = {}
+        self.tools: dict[str, tuple[AgentPermission, Callable[..., Any]]] = {}
 
     def register_tool(
         self,
