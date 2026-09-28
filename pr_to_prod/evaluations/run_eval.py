@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -131,12 +131,12 @@ class EvaluationHarness:
         orchestrator = WorkflowOrchestrator(settings, gateway)
         app_compiled = orchestrator.graph.compile()
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         result_state_or_dict = await app_compiled.ainvoke(state)
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
 
         duration = (end_time - start_time).total_seconds()
-        
+
         # Handle both dict and WorkflowState returns from LangGraph
         if isinstance(result_state_or_dict, dict):
             current_step_str = result_state_or_dict.get("current_step", "FAILED")
@@ -174,11 +174,11 @@ class EvaluationHarness:
 
     def _save_results(self, results: list[EvaluationResult]) -> None:
         """Save results to JSON file."""
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         output_file = self.output_dir / f"eval_results_{timestamp}.json"
 
         data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "provider": self.provider,
             "total_issues": len(results),
             "passed": sum(1 for r in results if r.success),

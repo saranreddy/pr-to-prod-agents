@@ -23,7 +23,7 @@ class DeployerAgent(BaseAgent):
         """Deploy the changes and monitor health."""
         if not state.code_change:
             raise ValueError("No code changes available")
-        
+
         logger.info(f"Deployer: Deploying PR #{state.code_change.pr_number}")
 
         if not state.code_change:
