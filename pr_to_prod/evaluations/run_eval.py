@@ -144,8 +144,14 @@ class EvaluationHarness:
             final_step = current_step_str
             retry_count = result_state_or_dict.get("retry_count_total", 0)
             token_usage_data = result_state_or_dict.get("token_usage", {})
-            tokens_used = token_usage_data.get("total_tokens", 0) if isinstance(token_usage_data, dict) else 0
-            cost_usd = token_usage_data.get("estimated_cost_usd", 0.0) if isinstance(token_usage_data, dict) else 0.0
+            tokens_used = (
+                token_usage_data.get("total_tokens", 0) if isinstance(token_usage_data, dict) else 0
+            )
+            cost_usd = (
+                token_usage_data.get("estimated_cost_usd", 0.0)
+                if isinstance(token_usage_data, dict)
+                else 0.0
+            )
             error = result_state_or_dict.get("error")
         else:
             # WorkflowState object
@@ -155,8 +161,16 @@ class EvaluationHarness:
             ]
             final_step = result_state_or_dict.current_step.value
             retry_count = result_state_or_dict.retry_count_total
-            tokens_used = result_state_or_dict.token_usage.total_tokens if result_state_or_dict.token_usage else 0
-            cost_usd = result_state_or_dict.token_usage.estimated_cost_usd if result_state_or_dict.token_usage else 0.0
+            tokens_used = (
+                result_state_or_dict.token_usage.total_tokens
+                if result_state_or_dict.token_usage
+                else 0
+            )
+            cost_usd = (
+                result_state_or_dict.token_usage.estimated_cost_usd
+                if result_state_or_dict.token_usage
+                else 0.0
+            )
             error = result_state_or_dict.error
 
         return EvaluationResult(
@@ -226,10 +240,10 @@ class EvaluationHarness:
         console.print(f"Avg Duration:    {avg_duration:.1f}s")
 
         by_complexity: dict[str, list[EvaluationResult]] = {
-        "low": [],
-        "medium": [],
-        "high": [],
-    }
+            "low": [],
+            "medium": [],
+            "high": [],
+        }
         for r in results:
             by_complexity[r.complexity].append(r)
 
