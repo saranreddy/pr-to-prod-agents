@@ -153,6 +153,7 @@ async def _run_demo(use_mock: bool) -> None:
         repo_owner="example-org",
         repo_name="sample-app",
         base_branch="main",
+        auto_approve_demo=True,  # Enable auto-approval for demo
     )
 
     orchestrator = WorkflowOrchestrator(settings, gateway)
@@ -176,25 +177,6 @@ async def _run_demo(use_mock: bool) -> None:
     console.print("\n[bold]Audit Log:[/bold]")
     for log in gateway.get_audit_log()[:10]:
         console.print(f"  {log}")
-
-    if result.current_step == WorkflowStep.AWAIT_APPROVAL:
-        console.print("\n[yellow]Workflow paused at approval gate[/yellow]")
-        console.print("[bold]Simulating approval...[/bold]")
-
-        state.approval = ApprovalDecision(
-            approved=True,
-            reviewer="demo-user",
-            comments="Demo approval",
-        )
-
-        result_or_dict = await app_compiled.ainvoke(state)
-
-        if isinstance(result_or_dict, dict):
-            result = WorkflowState(**result_or_dict)
-        else:
-            result = result_or_dict
-
-        console.print(f"\n[green]Workflow completed: {result.current_step.value}[/green]")
 
 
 @app.command()

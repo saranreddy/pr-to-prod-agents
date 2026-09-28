@@ -194,6 +194,8 @@ class WorkflowState(BaseModel):
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
+    auto_approve_demo: bool = False  # For demo mode auto-approval
+
     messages: list[str] = Field(default_factory=list)
 
     model_config = {"arbitrary_types_allowed": True}

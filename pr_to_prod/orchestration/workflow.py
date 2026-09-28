@@ -194,6 +194,8 @@ class WorkflowOrchestrator:
             state.error = str(e)
             state.current_step = WorkflowStep.FAILED
 
+        await self.storage.save_checkpoint(state.job_id, state.model_dump())
+
         return state
 
     async def _test_node(self, state: WorkflowState) -> WorkflowState:
