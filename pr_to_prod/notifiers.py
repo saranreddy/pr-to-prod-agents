@@ -111,8 +111,8 @@ class SNSNotifier(BaseNotifier):
             import boto3
 
             self.sns = boto3.client("sns")
-        except ImportError:
-            raise ImportError("boto3 is required for SNS notifier")
+        except ImportError as e:
+            raise ImportError("boto3 is required for SNS notifier") from e
 
     async def send_approval_request(self, state: WorkflowState) -> None:
         """Send approval request via SNS."""
