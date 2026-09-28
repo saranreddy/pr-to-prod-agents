@@ -112,7 +112,7 @@ class EvaluationHarness:
     async def _evaluate_issue(self, issue: dict[str, Any]) -> EvaluationResult:
         """Evaluate a single issue."""
         settings = get_settings()
-        gateway = ToolGateway()
+        gateway = ToolGateway()  # type: ignore[no-untyped-call]
 
         backend = MockGitHubBackend()
         backend.init_repo("example-org", "sample-app")
@@ -207,7 +207,11 @@ class EvaluationHarness:
         console.print(f"Total Cost:      ${total_cost:.2f}")
         console.print(f"Avg Duration:    {avg_duration:.1f}s")
 
-        by_complexity = {"low": [], "medium": [], "high": []}
+        by_complexity: dict[str, list[EvaluationResult]] = {
+        "low": [],
+        "medium": [],
+        "high": [],
+    }
         for r in results:
             by_complexity[r.complexity].append(r)
 

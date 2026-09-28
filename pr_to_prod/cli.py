@@ -48,10 +48,15 @@ def run(
     asyncio.run(_run_workflow(issue_number, owner, repo, mock))
 
 
-async def _run_workflow(issue_number: int, owner: str, repo: str, use_mock: bool) -> None:
+async def _run_workflow(
+    issue_number: int,
+    owner: str,
+    repo: str,
+    use_mock: bool,
+) -> None:  # type: ignore[no-untyped-def]
     """Run the workflow asynchronously."""
     settings = get_settings()
-    gateway = ToolGateway()
+    gateway = ToolGateway()  # type: ignore[no-untyped-call]
 
     if use_mock:
         backend = MockGitHubBackend()
@@ -126,10 +131,10 @@ def demo(
     asyncio.run(_run_demo(mock))
 
 
-async def _run_demo(use_mock: bool) -> None:
+async def _run_demo(use_mock: bool) -> None:  # type: ignore[no-untyped-def]
     """Run the demo workflow."""
     settings = get_settings()
-    gateway = ToolGateway()
+    gateway = ToolGateway()  # type: ignore[no-untyped-call]
 
     backend = MockGitHubBackend()
     backend.init_repo("example-org", "sample-app")
@@ -212,7 +217,7 @@ def resume(
     )
 
 
-async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:
+async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:  # type: ignore[no-untyped-def]
     """Resume a paused workflow."""
     settings = get_settings()
     storage = CheckpointStorage(settings.database_url)
@@ -236,7 +241,7 @@ async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:
         comments="Approval via CLI resume",
     )
 
-    gateway = ToolGateway()
+    gateway = ToolGateway()  # type: ignore[no-untyped-call]
 
     if "mock" in settings.llm_provider or not settings.github_token:
         backend = MockGitHubBackend()

@@ -20,6 +20,9 @@ class ReviewerAgent(BaseAgent):
 
     async def execute(self, state: WorkflowState) -> dict[str, Any]:
         """Review the code changes."""
+        if not state.code_change:
+            raise ValueError("No code changes available")
+        
         logger.info(f"Reviewer: Reviewing PR #{state.code_change.pr_number}")
 
         if not state.code_change or not state.plan:

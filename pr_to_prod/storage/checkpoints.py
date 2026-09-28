@@ -80,7 +80,7 @@ class CheckpointStorage:
 
             if row:
                 logger.info(f"Loaded checkpoint for job {job_id}")
-                return json.loads(row[0])
+                return json.loads(row[0])  # type: ignore[no-any-return]
 
         return None
 
@@ -135,7 +135,7 @@ class CheckpointStorage:
 
             if row:
                 logger.info(f"Loaded checkpoint for job {job_id}")
-                return json.loads(row["state_json"])
+                return json.loads(row["state_json"])  # type: ignore[no-any-return]
 
             return None
 

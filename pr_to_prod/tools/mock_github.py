@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class MockGitHubBackend:
     """Mock GitHub backend that simulates API responses."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.repos: dict[str, dict[str, Any]] = {}
         self.files: dict[str, dict[str, str]] = {}
         self.branches: dict[str, list[str]] = {}

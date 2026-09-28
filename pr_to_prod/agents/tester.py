@@ -20,6 +20,9 @@ class TesterAgent(BaseAgent):
 
     async def execute(self, state: WorkflowState) -> dict[str, Any]:
         """Add tests and check CI results."""
+        if not state.code_change:
+            raise ValueError("No code changes available")
+        
         logger.info(f"Tester: Adding tests for PR #{state.code_change.pr_number}")
 
         if not state.code_change or not state.plan:
