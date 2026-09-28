@@ -119,21 +119,26 @@ async def _run_workflow(
 @app.command()
 def demo(
     mock: bool = typer.Option(True, "--mock/--real", help="Use mock mode"),
+    simulate_unhealthy: bool = typer.Option(
+        False, "--simulate-unhealthy", help="Simulate unhealthy deployment for rollback testing"
+    ),
 ) -> None:
     """
     Run an end-to-end demo of the workflow.
     """
     console.print("[bold green]Running PR-to-Production Demo[/bold green]\n")
+    if simulate_unhealthy:
+        console.print("[yellow]⚠️  Simulating unhealthy deployment (rollback demo)[/yellow]\n")
 
     settings = get_settings()
     if not mock and not settings.github_token:
         console.print("[red]Error: GITHUB_TOKEN required for real mode[/red]")
         raise typer.Exit(1)
 
-    asyncio.run(_run_demo(mock))
+    asyncio.run(_run_demo(mock, simulate_unhealthy))
 
 
-async def _run_demo(use_mock: bool) -> None:
+async def _run_demo(use_mock: bool, simulate_unhealthy: bool = False) -> None:
     """Run the demo workflow."""
     settings = get_settings()
     gateway = ToolGateway()
@@ -154,6 +159,7 @@ async def _run_demo(use_mock: bool) -> None:
         repo_name="sample-app",
         base_branch="main",
         auto_approve_demo=True,  # Enable auto-approval for demo
+        simulate_unhealthy=simulate_unhealthy,  # Enable rollback simulation if requested
     )
 
     orchestrator = WorkflowOrchestrator(settings, gateway)

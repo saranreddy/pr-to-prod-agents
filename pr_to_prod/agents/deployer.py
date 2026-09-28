@@ -45,20 +45,37 @@ class DeployerAgent(BaseAgent):
         logger.info("Deployer: Monitoring health checks...")
         await asyncio.sleep(1)
 
-        health_check_passed = True
-        error_rate = 0.1
-        rolled_back = False
-
-        if error_rate > 5.0:
-            logger.warning(f"Deployer: Error rate {error_rate}% exceeds threshold, rolling back!")
-            rolled_back = True
+        # Check for simulated unhealthy state (for demo/testing)
+        if state.simulate_unhealthy:
+            logger.warning("Deployer: Simulated unhealthy deployment detected!")
             health_check_passed = False
+            error_rate = 25.0
+            rolled_back = True
+            rollback_reason = "Simulated unhealthy deployment for testing"
+        else:
+            health_check_passed = True
+            error_rate = 0.1
+            rolled_back = False
+            rollback_reason = None
+
+            # Check error rate threshold
+            if error_rate > 5.0:
+                logger.warning(
+                    f"Deployer: Error rate {error_rate}% exceeds threshold, rolling back!"
+                )
+                rolled_back = True
+                health_check_passed = False
+                rollback_reason = f"Error rate {error_rate}% exceeded threshold of 5.0%"
+
+        if rolled_back:
+            logger.warning(f"Deployer: Rolling back deployment. Reason: {rollback_reason}")
 
         deploy_result = DeployResult(
             deployed=merge_result["merged"],
             environment="staging",
             health_check_passed=health_check_passed,
             rolled_back=rolled_back,
+            rollback_reason=rollback_reason,
             error_rate=error_rate,
             deployment_url=f"https://staging.{state.repo_name}.example.com",
         )

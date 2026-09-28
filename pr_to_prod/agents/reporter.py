@@ -42,7 +42,11 @@ Include key metrics and outcomes.
 
 **Tests:** {"Passed" if state.test_result and state.test_result.passed else "N/A"}
 
-**Deployment:** {"Successful" if state.deploy_result and state.deploy_result.deployed else "N/A"}
+**Deployment:** {
+    "ROLLED BACK - " + state.deploy_result.rollback_reason
+    if state.deploy_result and state.deploy_result.rolled_back
+    else "Successful" if state.deploy_result and state.deploy_result.deployed else "N/A"
+}
 
 **Token Usage:** {state.token_usage.total_tokens} tokens (${state.token_usage.estimated_cost_usd:.2f})
 
@@ -53,11 +57,22 @@ Create a concise summary comment.
 
         summary = await self.call_llm(system_prompt, user_prompt)
 
+        # Add rollback warning if applicable
+        rollback_warning = ""
+        if state.deploy_result and state.deploy_result.rolled_back:
+            rollback_warning = f"""
+### ⚠️ Deployment Rolled Back
+
+The deployment was rolled back due to health check failure:
+**Reason:** {state.deploy_result.rollback_reason}
+
+"""
+
         report = f"""## 🤖 PR-to-Production Workflow Summary
 
 {summary}
 
----
+{rollback_warning}---
 
 ### Metrics
 - **Total Tokens:** {state.token_usage.total_tokens:,}

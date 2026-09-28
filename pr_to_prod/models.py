@@ -138,6 +138,8 @@ class DeployResult(BaseModel):
     environment: str
     health_check_passed: bool
     rolled_back: bool = False
+    rollback_reason: str | None = None
+    deployment_id: str | None = None
     error_rate: float | None = None
     deployment_url: str | None = None
 
@@ -196,6 +198,7 @@ class WorkflowState(BaseModel):
     completed_at: datetime | None = None
 
     auto_approve_demo: bool = False  # For demo mode auto-approval
+    simulate_unhealthy: bool = False  # For demo mode rollback testing
 
     messages: list[str] = Field(default_factory=list)
 
