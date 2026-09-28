@@ -1,12 +1,12 @@
 """Core data models for the PR-to-Production agent system."""
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class AgentRole(str, Enum):
+class AgentRole(StrEnum):
     """Agent roles with corresponding permissions."""
 
     PLANNER = "planner"
@@ -17,7 +17,7 @@ class AgentRole(str, Enum):
     REPORTER = "reporter"
 
 
-class WorkflowStep(str, Enum):
+class WorkflowStep(StrEnum):
     """Steps in the PR-to-production workflow."""
 
     PLAN = "plan"
@@ -31,7 +31,7 @@ class WorkflowStep(str, Enum):
     COMPLETED = "completed"
 
 
-class AgentPermission(str, Enum):
+class AgentPermission(StrEnum):
     """Granular permissions for tool gateway."""
 
     READ_REPO = "read_repo"
