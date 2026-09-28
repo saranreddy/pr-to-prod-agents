@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -90,9 +90,9 @@ class EvaluationHarness:
                 logger.error(f"Evaluation failed for issue #{issue['number']}: {e}")
                 results.append(
                     EvaluationResult(
-                        issue_number=issue["number"],
-                        issue_title=issue["title"],
-                        complexity=issue["complexity"],
+                        issue_number=int(str(issue.get("number", 0))),
+                        issue_title=str(issue.get("title", "")),
+                        complexity=str(issue.get("complexity", "medium")),
                         success=False,
                         final_step="ERROR",
                         duration_seconds=0,
@@ -131,36 +131,54 @@ class EvaluationHarness:
         orchestrator = WorkflowOrchestrator(settings, gateway)
         app_compiled = orchestrator.graph.compile()
 
-        start_time = datetime.utcnow()
-        result_state = await app_compiled.ainvoke(state)
-        end_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
+        result_state_or_dict = await app_compiled.ainvoke(state)
+        end_time = datetime.now(timezone.utc)
 
         duration = (end_time - start_time).total_seconds()
-        success = result_state.current_step in [
-            WorkflowStep.AWAIT_APPROVAL,
-            WorkflowStep.COMPLETED,
-        ]
+        
+        # Handle both dict and WorkflowState returns from LangGraph
+        if isinstance(result_state_or_dict, dict):
+            current_step_str = result_state_or_dict.get("current_step", "FAILED")
+            success = current_step_str in ["await_approval", "completed"]
+            final_step = current_step_str
+            retry_count = result_state_or_dict.get("retry_count_total", 0)
+            token_usage_data = result_state_or_dict.get("token_usage", {})
+            tokens_used = token_usage_data.get("total_tokens", 0) if isinstance(token_usage_data, dict) else 0
+            cost_usd = token_usage_data.get("estimated_cost_usd", 0.0) if isinstance(token_usage_data, dict) else 0.0
+            error = result_state_or_dict.get("error")
+        else:
+            # WorkflowState object
+            success = result_state_or_dict.current_step in [
+                WorkflowStep.AWAIT_APPROVAL,
+                WorkflowStep.COMPLETED,
+            ]
+            final_step = result_state_or_dict.current_step.value
+            retry_count = result_state_or_dict.retry_count_total
+            tokens_used = result_state_or_dict.token_usage.total_tokens if result_state_or_dict.token_usage else 0
+            cost_usd = result_state_or_dict.token_usage.estimated_cost_usd if result_state_or_dict.token_usage else 0.0
+            error = result_state_or_dict.error
 
         return EvaluationResult(
-            issue_number=issue["number"],
-            issue_title=issue["title"],
-            complexity=issue["complexity"],
+            issue_number=int(str(issue.get("number", 0))),
+            issue_title=str(issue.get("title", "")),
+            complexity=str(issue.get("complexity", "medium")),
             success=success,
-            final_step=result_state.current_step.value,
+            final_step=final_step,
             duration_seconds=duration,
-            retries=result_state.retry_count_total,
-            tokens_used=result_state.token_usage.total_tokens,
-            cost_usd=result_state.token_usage.estimated_cost_usd,
-            error=result_state.error,
+            retries=retry_count,
+            tokens_used=tokens_used,
+            cost_usd=cost_usd,
+            error=error,
         )
 
     def _save_results(self, results: list[EvaluationResult]) -> None:
         """Save results to JSON file."""
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         output_file = self.output_dir / f"eval_results_{timestamp}.json"
 
         data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "provider": self.provider,
             "total_issues": len(results),
             "passed": sum(1 for r in results if r.success),
