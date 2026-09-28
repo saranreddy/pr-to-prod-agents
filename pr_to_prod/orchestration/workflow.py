@@ -15,7 +15,7 @@ from pr_to_prod.agents import (
     TesterAgent,
 )
 from pr_to_prod.config import Settings
-from pr_to_prod.models import WorkflowState, WorkflowStep
+from pr_to_prod.models import ApprovalDecision, WorkflowState, WorkflowStep
 from pr_to_prod.providers import create_llm_provider
 from pr_to_prod.storage import CheckpointStorage
 from pr_to_prod.tools import ToolGateway
@@ -217,13 +217,26 @@ class WorkflowOrchestrator:
             if state.is_retry_exhausted():
                 state.current_step = WorkflowStep.FAILED
 
+        await self.storage.save_checkpoint(state.job_id, state.model_dump())
+
         return state
 
     async def _await_approval_node(self, state: WorkflowState) -> WorkflowState:
         """Human approval gate - this is where the workflow pauses."""
         logger.info("Orchestrator: AWAITING HUMAN APPROVAL")
         state.current_step = WorkflowStep.AWAIT_APPROVAL
-        state.add_message("Awaiting human approval...")
+        
+        # Auto-approve in demo mode
+        if state.auto_approve_demo and not state.approval:
+            logger.info("Orchestrator: Auto-approving in demo mode")
+            state.approval = ApprovalDecision(
+                approved=True,
+                reviewer="demo-auto-approval",
+                comments="Automatically approved in demo mode",
+            )
+            state.add_message("Auto-approved in demo mode")
+        else:
+            state.add_message("Awaiting human approval...")
 
         await self.storage.save_checkpoint(state.job_id, state.model_dump())
 

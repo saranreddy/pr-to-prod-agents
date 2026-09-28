@@ -75,6 +75,7 @@ AGENT_PERMISSIONS: dict[AgentRole, list[AgentPermission]] = {
         AgentPermission.WRITE_FILE,
         AgentPermission.PUSH_BRANCH,
         AgentPermission.READ_CI,
+        AgentPermission.COMMENT_PR,
     ],
     AgentRole.DEPLOYER: [
         AgentPermission.READ_REPO,

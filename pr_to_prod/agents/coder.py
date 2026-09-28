@@ -25,18 +25,25 @@ class CoderAgent(BaseAgent):
         if not state.plan:
             raise ValueError("No plan available for coder agent")
 
-        branch_name = (
-            f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
-        )
-        branch_name = "".join(c for c in branch_name if c.isalnum() or c in ["-", "/"])
+        # Reuse existing branch and PR if available
+        if state.code_change:
+            branch_name = state.code_change.branch_name
+            pr_number = state.code_change.pr_number
+            pr_url = state.code_change.pr_url
+            logger.info(f"Coder: Reusing existing branch {branch_name} and PR #{pr_number}")
+        else:
+            branch_name = (
+                f"agent/issue-{state.issue_number}-{state.issue_title[:30].lower().replace(' ', '-')}"
+            )
+            branch_name = "".join(c for c in branch_name if c.isalnum() or c in ["-", "/"])
 
-        await self.call_tool(
-            "push_branch",
-            owner=state.repo_owner,
-            repo=state.repo_name,
-            branch=branch_name,
-            base_branch=state.base_branch,
-        )
+            await self.call_tool(
+                "push_branch",
+                owner=state.repo_owner,
+                repo=state.repo_name,
+                branch=branch_name,
+                base_branch=state.base_branch,
+            )
 
         files_changed = []
         for file_path in state.plan.files_to_change[:3]:
@@ -110,23 +117,28 @@ Closes #{state.issue_number}
 {chr(10).join(f'- [ ] {c}' for c in state.plan.acceptance_criteria)}
 """
 
-        pr_info = await self.call_tool(
-            "create_pr",
-            owner=state.repo_owner,
-            repo=state.repo_name,
-            title=pr_title,
-            body=pr_body,
-            head=branch_name,
-            base=state.base_branch,
-        )
+        # Only create PR if this is the first time
+        if not state.code_change:
+            pr_info = await self.call_tool(
+                "create_pr",
+                owner=state.repo_owner,
+                repo=state.repo_name,
+                title=pr_title,
+                body=pr_body,
+                head=branch_name,
+                base=state.base_branch,
+            )
+            pr_number = pr_info["number"]
+            pr_url = pr_info["url"]
+            logger.info(f"Coder: Created PR #{pr_number}")
 
         code_change = CodeChange(
             branch_name=branch_name,
             files_changed=files_changed,
-            pr_number=pr_info["number"],
-            pr_url=pr_info["url"],
+            pr_number=pr_number,
+            pr_url=pr_url,
         )
 
-        logger.info(f"Coder: Created PR #{pr_info['number']}")
+        logger.info(f"Coder: Updated {len(files_changed)} files on PR #{pr_number}")
 
         return {"code_change": code_change}
