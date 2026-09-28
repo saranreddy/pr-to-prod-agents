@@ -96,7 +96,6 @@ async def test_deployer_rolls_back_on_simulated_unhealthy():
 @pytest.mark.asyncio
 async def test_deployer_succeeds_without_simulate_unhealthy():
     """Test that deployer succeeds normally when simulate_unhealthy is False."""
-    settings = get_settings()
     gateway = ToolGateway()
 
     backend = MockGitHubBackend()
