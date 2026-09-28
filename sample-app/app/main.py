@@ -41,8 +41,8 @@ async def create_note(note: Note) -> Note:
     global next_id
     
     note.id = next_id
-    note.created_at = datetime.utcnow()
-    note.updated_at = datetime.utcnow()
+    note.created_at = datetime.now(timezone.utc)
+    note.updated_at = datetime.now(timezone.utc)
     
     notes_db[next_id] = note
     next_id += 1
@@ -67,7 +67,7 @@ async def update_note(note_id: int, note: Note) -> Note:
     existing_note = notes_db[note_id]
     existing_note.title = note.title
     existing_note.content = note.content
-    existing_note.updated_at = datetime.utcnow()
+    existing_note.updated_at = datetime.now(timezone.utc)
     
     return existing_note
 
