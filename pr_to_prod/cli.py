@@ -32,7 +32,7 @@ def run(
     repo_owner: str | None = typer.Option(None, "--owner", help="Repository owner"),
     repo_name: str | None = typer.Option(None, "--repo", help="Repository name"),
     mock: bool = typer.Option(False, "--mock", help="Use mock GitHub backend"),
-):
+) -> None:  # type: ignore[no-untyped-def]
     """
     Start a PR-to-production workflow for a GitHub issue.
     """
@@ -197,7 +197,7 @@ def resume(
     approve: bool = typer.Option(False, "--approve", help="Approve the workflow"),
     reject: bool = typer.Option(False, "--reject", help="Reject the workflow"),
     reviewer: str = typer.Option("human", "--reviewer", help="Reviewer name"),
-):
+) -> None:  # type: ignore[no-untyped-def]
     """
     Resume a paused workflow with an approval decision.
     """
@@ -259,7 +259,12 @@ async def _resume_workflow(job_id: str, approve: bool, reviewer: str) -> None:  
 
     console.print(f"\n[green]Resuming workflow for job {job_id}...[/green]")
 
-    result = await app_compiled.ainvoke(state)
+    result_or_dict = await app_compiled.ainvoke(state)
+
+    if isinstance(result_or_dict, dict):
+        result = WorkflowState(**result_or_dict)
+    else:
+        result = result_or_dict
 
     console.print("\n[bold]Workflow Result:[/bold]")
     console.print(f"Status: {result.current_step.value}")
