@@ -93,10 +93,12 @@ async def _run_workflow(
 
     console.print(f"[green]Job {job_id} started[/green]")
 
-    result = await app_compiled.ainvoke(state)
+    result_or_dict = await app_compiled.ainvoke(state)
 
-    if isinstance(result, dict):
-        result = WorkflowState(**result)
+    if isinstance(result_or_dict, dict):
+        result = WorkflowState(**result_or_dict)
+    else:
+        result = result_or_dict
 
     console.print("\n[bold]Workflow Result:[/bold]")
     console.print(f"Status: {result.current_step.value}")
