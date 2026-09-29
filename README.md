@@ -43,7 +43,7 @@ Each agent has minimal, role-based permissions enforced through a central tool g
 - **Docker sandbox**: Secure code execution with network isolation, resource limits, and subprocess fallback
 - **Auto-approval mode**: Demo flag for end-to-end testing without manual approval
 - **Rollback simulation**: Health check failure triggering automatic rollback
-- **51 passing tests**: 40 unit tests + 11 integration/sandbox tests
+- **51 passing tests**: 48 unit tests + 3 integration tests
 - **CI pipeline**: GitHub Actions running tests, linting, and type checking
 
 ### 🔄 What's Mocked/Simulated
@@ -58,7 +58,7 @@ Each agent has minimal, role-based permissions enforced through a central tool g
 - **Real GitHub API integration**: GitHub tools exist but not wired to live API
 - **Real LLM API calls**: Anthropic and Bedrock providers implemented but not used in agents
 - **Webhook receiver**: FastAPI webhook server scaffolded but not deployed
-- **AWS infrastructure**: CDK/Terraform IaC exists but not deployed to AWS
+- **AWS infrastructure**: AWS CDK IaC exists but not deployed to AWS
 - **Evaluation harness execution**: Sample issues and eval framework present but not run against real APIs
 - **Production deployments**: No integration with real staging/production environments
 
@@ -199,12 +199,12 @@ pr-to-prod-agents/
 │   ├── cli.py           # Typer CLI for demo, run, resume commands
 │   └── webhook.py       # FastAPI webhook receiver (not deployed)
 ├── tests/
-│   ├── unit/            # 40 unit tests for components
-│   └── integration/     # 11 integration tests for workflows
+│   ├── unit/            # 48 unit tests
+│   └── integration/     # 3 integration tests
 ├── sample-app/          # Example FastAPI app for testing
 ├── docs/
 │   └── architecture/    # Architecture diagrams and documentation
-├── infrastructure/      # AWS CDK/Terraform (not deployed)
+├── infrastructure/      # AWS CDK (not deployed)
 └── evaluations/         # Evaluation harness and sample issues
 ```
 
