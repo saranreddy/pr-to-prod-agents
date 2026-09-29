@@ -200,9 +200,9 @@ async def test_end_to_end_rollback_workflow():
         result = WorkflowState(**result)
 
     # Verify workflow ended with rolled_back status (not completed)
-    assert result.current_step.value == "rolled_back", (
-        f"Workflow should end with rolled_back status when deploy fails, got {result.current_step.value}"
-    )
+    assert (
+        result.current_step.value == "rolled_back"
+    ), f"Workflow should end with rolled_back status when deploy fails, got {result.current_step.value}"
 
     # Verify rollback occurred
     assert result.deploy_result is not None
