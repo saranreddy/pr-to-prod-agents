@@ -1,363 +1,377 @@
 # PR-to-Production Agent Team
 
-[![CI](https://github.com/your-org/pr-to-prod-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/pr-to-prod-agents/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-Enterprise-grade multi-agent system that automates the complete PR-to-production workflow. A GitHub issue labeled `agent:build` triggers a team of specialist AI agents that plan, code, review, test, and deploy changes with human approval gates.
-
-![Architecture Diagram](docs/architecture.dot)
+An autonomous multi-agent system that transforms GitHub issues into production deployments through supervised collaboration.
 
 ## Overview
 
-When you label a GitHub issue with `agent:build`, this system:
+The PR-to-Production Agent Team implements a complete software delivery workflow using specialized AI agents orchestrated by LangGraph. When a GitHub issue is labeled `agent:build`, the system:
 
-1. **Plans** the implementation (Planner agent - read-only)
-2. **Codes** the changes on an agent branch (Coder agent - push only)
-3. **Reviews** the PR against quality standards (Reviewer agent - comment only)
-4. **Tests** with acceptance criteria (Tester agent - push tests, read CI)
-5. **Awaits human approval** (durable interrupt with notification)
-6. **Deploys** to staging and monitors health (Deployer agent - merge & deploy)
-7. **Reports** results back to the issue (Reporter agent - comment only)
+1. **Plans** the implementation approach and estimates complexity
+2. **Codes** changes in a sandboxed environment, creating a draft PR on an `agent/*` branch
+3. **Reviews** the code for quality and correctness (up to 3 retry loops)
+4. **Tests** by generating and running test cases
+5. **Awaits approval** at a human-in-the-loop gate with durable checkpointing
+6. **Deploys** to staging with health checks and automatic rollback on failure
+7. **Reports** results back to the issue with PR link, deploy status, and run cost
 
-Each agent has **least-privilege permissions** enforced by a tool gateway with audit logging. Retry logic handles failures, and human approval gates provide control before deployment.
-
-## Features
-
-- 🤖 **Six Specialist Agents** with role-based permissions
-- 🔒 **Tool Gateway** with audit logging and permission enforcement
-- 🔄 **LangGraph Orchestration** with supervisor pattern and conditional routing
-- 💾 **Checkpoint Persistence** (SQLite/Postgres) for resumable workflows
-- 🎯 **Human-in-the-Loop** approval with pluggable notifications (Slack/SNS/Console)
-- 🧪 **Mock LLM Provider** for offline testing and deterministic evaluation
-- 📊 **Evaluation Harness** with 20 sample issues and pass rate tracking
-- ☁️ **AWS Infrastructure** (CDK) with API Gateway, ECS Fargate, Aurora Postgres
-- 📝 **Sample App** (FastAPI Notes API) for demonstrations
+Each agent has minimal, role-based permissions enforced through a central tool gateway with full audit logging.
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for detailed design documentation.
+![PR-to-Production Architecture](docs/architecture/pr-to-prod-architecture-v3.svg)
 
-### Agent Roles and Permissions
+*Figure: Target AWS architecture showing ECS deployment, RDS checkpoints, and EventBridge webhooks. Current implementation runs locally with mocked backends.*
 
-| Agent | Role | Permissions |
-|-------|------|-------------|
-| **Planner** | Create implementation plan | Read repo, search code, read files |
-| **Coder** | Implement changes | Write files, push to agent/* branches, create PRs |
-| **Reviewer** | Code review | Read files, comment on PRs, submit reviews |
-| **Tester** | Write tests | Write files, push to branches, read CI status |
-| **Deployer** | Deploy and monitor | Merge PRs, trigger deploys, read health checks |
-| **Reporter** | Summarize results | Comment on issues |
+[View full-size PNG](docs/architecture/pr-to-prod-architecture-v3.png)
 
-## Quick Start
+### Key Components
 
-### Prerequisites
+- **LangGraph Supervisor**: Orchestrates agent execution with conditional routing
+- **Tool Gateway**: Enforces RBAC and logs all tool calls for audit
+- **Checkpoint Storage**: Persists workflow state to SQLite/Postgres for resumability
+- **Sandbox Runner**: Executes untrusted code in isolated Docker containers
+- **Mock Backends**: GitHub and LLM mocks for testing without external dependencies
 
-- Python 3.11+
-- (Optional) GitHub Personal Access Token for real mode
-- (Optional) Anthropic API key or AWS credentials for real LLM providers
+## Current Status
+
+### ✅ What Works Today (Real)
+
+- **Complete workflow execution**: PLAN → CODE → REVIEW → TEST → AWAIT_APPROVAL → DEPLOY → REPORT → COMPLETED
+- **LangGraph orchestration**: Supervisor pattern with conditional routing between agents
+- **Tool gateway**: Permission enforcement and audit logging for all agent actions
+- **Checkpoint persistence**: Resume workflows from approval gates using SQLite or Postgres
+- **Docker sandbox**: Secure code execution with network isolation, resource limits, and subprocess fallback
+- **Auto-approval mode**: Demo flag for end-to-end testing without manual approval
+- **Rollback simulation**: Health check failure triggering automatic rollback
+- **51 passing tests**: 40 unit tests + 11 integration/sandbox tests
+- **CI pipeline**: GitHub Actions running tests, linting, and type checking
+
+### 🔄 What's Mocked/Simulated
+
+- **GitHub API**: Using `MockGitHubBackend` for repo, PR, and issue operations
+- **LLM providers**: Using `MockProvider` instead of real Anthropic/Bedrock API calls
+- **Deployments**: Simulated staging deploy with configurable health check outcomes
+- **Health checks**: Mock health verification with simulated metrics
+
+### 🚧 Not Yet Implemented
+
+- **Real GitHub API integration**: GitHub tools exist but not wired to live API
+- **Real LLM API calls**: Anthropic and Bedrock providers implemented but not used in agents
+- **Webhook receiver**: FastAPI webhook server scaffolded but not deployed
+- **AWS infrastructure**: CDK/Terraform IaC exists but not deployed to AWS
+- **Evaluation harness execution**: Sample issues and eval framework present but not run against real APIs
+- **Production deployments**: No integration with real staging/production environments
+
+## Quickstart
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/pr-to-prod-agents.git
+# Clone and install dependencies
+git clone <repo-url>
 cd pr-to-prod-agents
+pip install -e .
 
-# Install dependencies
+# Install dev dependencies
 pip install -e ".[dev]"
-
-# Copy environment template
-cp .env.example .env
 ```
 
-### Run the Demo (Mock Mode)
+### Run Demo (Normal Flow)
+
+Execute the complete workflow with mock backends:
 
 ```bash
-# Run end-to-end demo with mock LLM and GitHub
-pr-to-prod demo --mock
-
-# Or using make
-make demo
+python3 -m pr_to_prod.cli demo --mock
 ```
 
-This runs the full workflow (plan → code → review → test → approval → deploy → report) with simulated backends, printing a readable trace.
+**Output (last 20 lines)**:
+```
+Demo Workflow Complete!
 
-### Run with Real GitHub (Optional)
+Final Status: completed
+Steps Executed: 7
 
-```bash
-# Set your GitHub token in .env
-# GITHUB_TOKEN=ghp_your_token_here
+Workflow Log:
+  [2026-09-29T00:33:30.925437+00:00] Plan created with 1 files to change
+  [2026-09-29T00:33:30.939217+00:00] Created PR #1
+  [2026-09-29T00:33:30.947566+00:00] Review: Approved
+  [2026-09-29T00:33:30.957215+00:00] Tests: 2 passed, 0 failed
+  [2026-09-29T00:33:30.962536+00:00] Auto-approved in demo mode
+  [2026-09-29T00:33:32.975189+00:00] Deployed to staging: Success
+  [2026-09-29T00:33:32.979455+00:00] Final report posted to issue
 
-# Run against a real issue
-pr-to-prod run --issue 42 --owner your-org --repo your-repo
+Audit Log:
+  [2026-09-29T00:33:30.923277+00:00] ALLOWED - planner called read_repo 
+  [2026-09-29T00:33:30.923995+00:00] ALLOWED - planner called search_code 
+  [2026-09-29T00:33:30.933523+00:00] ALLOWED - coder called push_branch 
+  [2026-09-29T00:33:30.934785+00:00] ALLOWED - coder called read_file 
+  [2026-09-29T00:33:30.935441+00:00] ALLOWED - coder called write_file 
+  [2026-09-29T00:33:30.937111+00:00] ALLOWED - coder called create_pr 
+  [2026-09-29T00:33:30.944071+00:00] ALLOWED - reviewer called read_file 
+  [2026-09-29T00:33:30.944822+00:00] ALLOWED - reviewer called comment_pr 
+  [2026-09-29T00:33:30.945964+00:00] ALLOWED - reviewer called review_pr 
+  [2026-09-29T00:33:30.952574+00:00] ALLOWED - tester called write_file 
 ```
 
-## Configuration
+### Run Demo (Rollback Flow)
 
-Edit `.env` or set environment variables:
+Simulate a failed health check to trigger automatic rollback:
 
 ```bash
-# LLM Provider
-LLM_PROVIDER=mock  # mock, anthropic, or bedrock
-
-# Anthropic (if using)
-ANTHROPIC_API_KEY=sk-ant-xxxxx
-
-# AWS Bedrock (if using)
-AWS_REGION=us-east-1
-BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
-
-# GitHub
-GITHUB_TOKEN=ghp_xxxxx
-
-# Database (checkpoint persistence)
-DATABASE_URL=sqlite:///checkpoints.db
-# Or: postgresql://user:pass@host/db
-
-# Notifications
-NOTIFIER_TYPE=console  # console, slack, sns
-SLACK_WEBHOOK_URL=https://hooks.slack.com/...
+python3 -m pr_to_prod.cli demo --mock --simulate-unhealthy
 ```
 
-## Development
+**Output (last 20 lines)**:
+```
+Demo Workflow Complete!
+
+Final Status: completed
+Steps Executed: 7
+
+Workflow Log:
+  [2026-09-29T00:33:30.916277+00:00] Plan created with 1 files to change
+  [2026-09-29T00:33:30.928930+00:00] Created PR #1
+  [2026-09-29T00:33:30.937163+00:00] Review: Approved
+  [2026-09-29T00:33:30.946237+00:00] Tests: 2 passed, 0 failed
+  [2026-09-29T00:33:30.950943+00:00] Auto-approved in demo mode
+  [2026-09-29T00:33:32.963025+00:00] Deployed to staging: Failed
+  [2026-09-29T00:33:32.967278+00:00] Final report posted to issue
+
+Audit Log:
+  [2026-09-29T00:33:30.914144+00:00] ALLOWED - planner called read_repo 
+  [2026-09-29T00:33:30.914814+00:00] ALLOWED - planner called search_code 
+  [2026-09-29T00:33:30.923284+00:00] ALLOWED - coder called push_branch 
+  [2026-09-29T00:33:30.924421+00:00] ALLOWED - coder called read_file 
+  [2026-09-29T00:33:30.925058+00:00] ALLOWED - coder called write_file 
+  [2026-09-29T00:33:30.926668+00:00] ALLOWED - coder called create_pr 
+  [2026-09-29T00:33:30.933625+00:00] ALLOWED - reviewer called read_file 
+  [2026-09-29T00:33:30.934325+00:00] ALLOWED - reviewer called comment_pr 
+  [2026-09-29T00:33:30.935433+00:00] ALLOWED - reviewer called review_pr 
+  [2026-09-29T00:33:30.941741+00:00] ALLOWED - tester called write_file 
+```
+
+### Run Tests
 
 ```bash
-# Run tests
-make test
+# Run all tests with coverage
+pytest tests/ -v --cov=pr_to_prod --cov-report=term-missing
 
+# Run specific test categories
+pytest tests/unit/ -v           # Unit tests only
+pytest tests/integration/ -v    # Integration tests only
+
+# Quick test count
+pytest tests/ --co -q
+```
+
+**Test Summary**:
+- **51 tests** (40 unit + 11 integration)
+- **58% coverage** (669/1575 lines)
+- All tests pass in CI
+
+### Linting and Type Checking
+
+```bash
 # Format code
-make format
+black pr_to_prod tests
+
+# Check formatting
+black --check pr_to_prod tests
 
 # Lint
-make lint
+ruff check pr_to_prod tests
 
 # Type check
-make type-check
-
-# Run evaluation
-make eval
+mypy pr_to_prod --ignore-missing-imports
 ```
 
-## Evaluation
-
-The system includes an evaluation harness with 20 sample issues:
-
-```bash
-# Run evaluation with mock provider
-python -m pr_to_prod.evaluations.run_eval --provider mock
-
-# Results saved to eval_results/ with:
-# - Pass rate by complexity
-# - Token usage and cost
-# - Retry counts
-# - Average duration
-```
-
-Example output:
-```
-Evaluation Summary
-Total Issues:    20
-Passed:          18 (90.0%)
-Failed:          2
-Total Tokens:    150,000
-Total Cost:      $0.00 (mock)
-Avg Duration:    12.3s
-```
-
-## AWS Deployment
-
-**Note: Do not run these commands - instructions only. No actual deployment is performed.**
-
-```bash
-# Install CDK
-npm install -g aws-cdk
-
-# Bootstrap CDK (first time only)
-cd infrastructure
-cdk bootstrap
-
-# Synth CloudFormation template
-cdk synth
-
-# Deploy to AWS
-# cdk deploy  # (NOT RUN IN DEMO)
-```
-
-This creates:
-- API Gateway + Lambda for GitHub webhooks
-- SQS queue for job processing
-- ECS Fargate service for orchestrator
-- Aurora Postgres for checkpoints
-- Secrets Manager for per-agent tokens
-- ECS + ALB for staging deployment
-- CloudWatch alarms for monitoring
-
-Estimated cost: **$60-100/month** for light usage.
-
-### GitHub App Setup (Production)
-
-For production, create separate GitHub Apps for each agent role:
-
-1. **Planner App**: Read-only repository access
-2. **Coder App**: Read/write code, create PRs (restrict to agent/* branches)
-3. **Reviewer App**: Pull request review permissions
-4. **Tester App**: Read/write code, read checks
-5. **Deployer App**: Merge PRs, trigger workflows
-6. **Reporter App**: Issue comment permissions
-
-Store tokens in AWS Secrets Manager and configure:
-
-```bash
-PLANNER_GITHUB_TOKEN=ghp_readonly_xxxxx
-CODER_GITHUB_TOKEN=ghp_push_agent_xxxxx
-REVIEWER_GITHUB_TOKEN=ghp_comment_xxxxx
-# ... etc
-```
-
-## How It Works
-
-### Workflow Steps
-
-1. **Trigger**: GitHub webhook or CLI starts a job
-2. **Plan**: Planner reads issue and repo, creates structured plan
-3. **Code**: Coder implements changes on `agent/<issue>-<slug>` branch
-4. **Review**: Reviewer checks code quality (up to 3 rounds)
-5. **Test**: Tester adds tests and reads CI results
-6. **Approval**: System pauses and notifies human
-7. **Deploy**: Deployer merges, deploys, monitors health
-8. **Report**: Reporter posts summary to issue
-
-### Retry Logic
-
-- **Coder retries**: Max 3 (e.g., if tests fail)
-- **Reviewer rounds**: Max 3 (changes requested → re-code)
-- **Total retries**: Max 10 across all steps
-- Retry cap hit → escalate to human with failure summary
-
-### Rollback
-
-If deployment health checks fail:
-- Error rate > 5%: Auto-rollback triggered
-- Previous version restored
-- Incident reported in summary
-
-## Project Structure
+## Repository Layout
 
 ```
 pr-to-prod-agents/
 ├── pr_to_prod/
-│   ├── agents/              # Six specialist agents
-│   ├── orchestration/       # LangGraph supervisor
-│   ├── tools/               # Tool gateway + GitHub tools
-│   ├── providers/           # LLM providers (Anthropic, Bedrock, Mock)
-│   ├── models.py            # Pydantic data models
-│   ├── config.py            # Settings management
-│   ├── cli.py               # CLI interface
-│   ├── webhook.py           # FastAPI webhook receiver
-│   ├── notifiers.py         # Approval notifications
-│   └── evaluations/         # Evaluation harness
+│   ├── agents/          # Six specialized agents (planner, coder, reviewer, tester, deployer, reporter)
+│   ├── orchestration/   # LangGraph supervisor workflow with conditional routing
+│   ├── tools/           # Tool gateway, GitHub tools, mock backends
+│   ├── sandbox/         # Docker sandbox runner with subprocess fallback
+│   ├── providers/       # LLM provider interface (Anthropic, Bedrock, Mock)
+│   ├── storage/         # Checkpoint persistence (SQLite/Postgres)
+│   ├── models.py        # Pydantic models for state, permissions, results
+│   ├── config.py        # Settings and environment configuration
+│   ├── cli.py           # Typer CLI for demo, run, resume commands
+│   └── webhook.py       # FastAPI webhook receiver (not deployed)
 ├── tests/
-│   ├── unit/                # Unit tests
-│   └── integration/         # Integration tests
-├── sample-app/              # Target app for demos
-│   ├── app/main.py          # FastAPI notes API
-│   └── tests/               # Sample app tests
-├── infrastructure/          # AWS CDK stack
-│   ├── cdk_stack.py         # Infrastructure definition
-│   └── README.md            # Deployment guide
+│   ├── unit/            # 40 unit tests for components
+│   └── integration/     # 11 integration tests for workflows
+├── sample-app/          # Example FastAPI app for testing
 ├── docs/
-│   ├── architecture.md      # Detailed design docs
-│   └── architecture.dot     # Architecture diagram
-├── .github/workflows/       # CI for main project
-├── pyproject.toml           # Python project config
-├── .env.example             # Environment template
-└── README.md                # This file
+│   └── architecture/    # Architecture diagrams and documentation
+├── infrastructure/      # AWS CDK/Terraform (not deployed)
+└── evaluations/         # Evaluation harness and sample issues
 ```
 
-## Design Decisions
+## Agent Permissions
 
-### Why LangGraph?
-- Native support for supervisor patterns and conditional routing
-- Checkpoint persistence for resumable workflows
-- Built-in interrupt mechanism for human-in-the-loop
+Each agent has minimal, role-based permissions enforced by the tool gateway:
 
-### Why Mock Provider?
-- Enables offline development and testing
-- Deterministic responses for reliable evaluation
-- Zero cost for CI/CD pipelines
-- Full workflow validation without API keys
+| Agent | Permissions |
+|-------|------------|
+| **Planner** | `READ_REPO`, `SEARCH_CODE`, `READ_FILE` |
+| **Coder** | `READ_REPO`, `SEARCH_CODE`, `READ_FILE`, `WRITE_FILE`, `PUSH_BRANCH`, `CREATE_PR` |
+| **Reviewer** | `READ_REPO`, `READ_FILE`, `COMMENT_PR`, `REVIEW_PR` |
+| **Tester** | `READ_REPO`, `READ_FILE`, `WRITE_FILE`, `PUSH_BRANCH`, `READ_CI`, `COMMENT_PR` |
+| **Deployer** | `READ_REPO`, `MERGE_PR`, `TRIGGER_DEPLOY`, `READ_HEALTH` |
+| **Reporter** | `READ_REPO`, `COMMENT_ISSUE` |
 
-### Why CDK over Terraform?
-- Type-safe Python (same language as main project)
-- Higher-level constructs (60% less boilerplate)
-- Better AWS integration and secure defaults
-- Easier to unit test infrastructure
+All tool calls are logged with timestamp, agent, tool name, permission, and result for full audit trail.
 
-### Why Least Privilege?
-- Security: Limits blast radius if an agent is compromised
-- Safety: Prevents accidental destructive operations
-- Audit: Clear trail of which agent did what
-- Production ready: Maps to separate GitHub Apps
+## Configuration
 
-## Known Limitations & Future Work
+### Environment Variables
 
-### Current Limitations
+Configure the system using these environment variables (see `.env.example`):
 
-1. **Checkpoint Resume**: Resume command is a placeholder - full state restoration needs database queries
-2. **Observability**: Langfuse integration exists but is minimal (set `LANGFUSE_ENABLED=true`)
-3. **Sandbox Isolation**: Docker/Fargate mentioned but not fully implemented for coder execution
-4. **MCP Servers**: GitHub tools are not yet exposed as MCP servers
-5. **Real GitHub API**: Some advanced features (e.g., draft PR conversion) need refinement
+- `ANTHROPIC_API_KEY` - Anthropic API key for Claude models (not used in mock mode)
+- `GITHUB_TOKEN` - GitHub personal access token (not used in mock mode)
+- `DATABASE_URL` - PostgreSQL connection string (defaults to SQLite)
+- `DEFAULT_LLM_PROVIDER` - LLM provider: `mock`, `anthropic`, or `bedrock`
+- `DEFAULT_MODEL` - Model name per provider
+- `MAX_RETRIES_*` - Retry limits for coder, reviewer, total
+- `ENABLE_CHECKPOINTS` - Enable/disable checkpoint persistence
 
-### Roadmap
+### Agent Models
 
-- [ ] Full checkpoint resume from database
-- [ ] Rich Langfuse tracing with cost breakdown
-- [ ] Sandboxed code execution (Docker/gVisor)
-- [ ] MCP server for GitHub tools
-- [ ] Multi-repo support
-- [ ] Custom agent roles
-- [ ] Web dashboard for job monitoring
-- [ ] Parallel test execution
-- [ ] Advanced rollback strategies
+Override per-agent models via environment variables:
+- `AGENT_MODEL_PLANNER`
+- `AGENT_MODEL_CODER`
+- `AGENT_MODEL_REVIEWER`
+- `AGENT_MODEL_TESTER`
+- `AGENT_MODEL_DEPLOYER`
+- `AGENT_MODEL_REPORTER`
+
+## Roadmap
+
+### Next Steps
+
+1. **Real GitHub API Integration**
+   - Wire up `GitHubTools` to live GitHub API
+   - Replace `MockGitHubBackend` with real API calls
+   - Add OAuth flow for user authentication
+
+2. **Real LLM API Integration**
+   - Switch agents from `MockProvider` to `AnthropicProvider` / `BedrockProvider`
+   - Add streaming support for long-running generations
+   - Implement token tracking and cost monitoring
+
+3. **Webhook Receiver Deployment**
+   - Deploy FastAPI webhook server to AWS Lambda or ECS
+   - Configure GitHub webhook for issue labeled events
+   - Add authentication and request validation
+
+4. **AWS Infrastructure Deployment**
+   - Deploy ECS Fargate cluster for agent runners
+   - Set up RDS PostgreSQL for checkpoint persistence
+   - Configure EventBridge for workflow orchestration
+   - Add S3 for artifact storage
+
+5. **Evaluation Harness**
+   - Run evaluation against 20 sample issues with real APIs
+   - Measure success rates, costs, and execution times
+   - Generate evaluation reports and metrics
+
+6. **Production Hardening**
+   - Add retries with exponential backoff for API calls
+   - Implement circuit breakers for external services
+   - Add structured logging and metrics collection
+   - Set up monitoring and alerting
 
 ## Testing
 
+### Test Structure
+
+- **Unit Tests** (`tests/unit/`): Test individual components in isolation
+  - Workflow routing logic
+  - Permission enforcement
+  - Checkpoint persistence
+  - Sandbox execution
+  - Rollback behavior
+
+- **Integration Tests** (`tests/integration/`): Test end-to-end workflows
+  - Full workflow execution with mocks
+  - Step ordering verification
+  - PR reuse on retries
+  - Approval gate behavior
+
+### Running Tests Locally
+
 ```bash
-# Run all tests
-pytest
+# All tests
+pytest tests/ -v
 
-# Run with coverage
-pytest --cov=pr_to_prod --cov-report=html
+# With coverage report
+pytest tests/ --cov=pr_to_prod --cov-report=html
 
-# Run specific test
-pytest tests/unit/test_gateway.py -v
+# Specific test file
+pytest tests/unit/test_rollback.py -v
 
-# Run integration tests
-pytest tests/integration/ -v
+# Specific test function
+pytest tests/unit/test_sandbox.py::test_docker_runner_executes_command -v
 ```
 
-## Contributing
+### CI Pipeline
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes with tests
-4. Run `make test lint format type-check`
-5. Commit your changes
-6. Push to your branch
-7. Open a Pull Request
+GitHub Actions runs on every push:
+- **lint**: `black --check` and `ruff check`
+- **type-check**: `mypy pr_to_prod --ignore-missing-imports`
+- **test**: `pytest tests/ -v --cov=pr_to_prod`
+- **sample-app-tests**: `pytest sample-app/tests/`
+
+All checks must pass before merge.
+
+## Development
+
+### Setup Development Environment
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install in editable mode with dev dependencies
+pip install -e ".[dev]"
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+### Code Quality
+
+This project uses:
+- **black** for code formatting (line length 100)
+- **ruff** for fast Python linting
+- **mypy** for static type checking
+- **pytest** for testing with coverage tracking
+
+### Making Changes
+
+1. Create a feature branch from `main`
+2. Make your changes with tests
+3. Run `black`, `ruff`, and `mypy` locally
+4. Ensure all tests pass: `pytest tests/ -v`
+5. Push and open a PR
+6. Wait for CI checks to pass
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+[Add license information]
 
-## Acknowledgments
+## Contributing
 
-- Built with [LangGraph](https://github.com/langchain-ai/langgraph) for orchestration
-- Powered by [Anthropic Claude](https://www.anthropic.com/) for agent intelligence
-- Infrastructure as code with [AWS CDK](https://aws.amazon.com/cdk/)
-- Inspired by [AutoGPT](https://github.com/Significant-Gravitas/AutoGPT) and [MetaGPT](https://github.com/geekan/MetaGPT)
+[Add contribution guidelines]
 
 ---
 
-**Note**: This is a demonstration project showing enterprise multi-agent patterns. Do not deploy to production without security review, rate limiting, cost controls, and proper GitHub App configuration.
+**Current Version**: Development (not released)  
+**Test Coverage**: 58% (669/1575 lines)  
+**Tests**: 51 passing (40 unit, 11 integration)  
+**CI Status**: All checks passing
