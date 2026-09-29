@@ -20,7 +20,7 @@ Each agent has minimal, role-based permissions enforced through a central tool g
 
 ![PR-to-Production Architecture](docs/architecture/pr-to-prod-architecture-v3.svg)
 
-*Figure: Target AWS architecture showing ECS deployment, RDS checkpoints, and EventBridge webhooks. Current implementation runs locally with mocked backends.*
+*Figure: Target AWS architecture showing GitHub webhook → API Gateway → Lambda → SQS → ECS Fargate orchestrator with Aurora Postgres for checkpoints, Claude via Bedrock, Langfuse tracing, Secrets Manager for agent tokens, and CloudWatch metrics for deployment decisions. Current implementation runs locally with mocked backends.*
 
 [View full-size PNG](docs/architecture/pr-to-prod-architecture-v3.png)
 
@@ -68,7 +68,7 @@ Each agent has minimal, role-based permissions enforced through a central tool g
 
 ```bash
 # Clone and install dependencies
-git clone <repo-url>
+git clone https://github.com/saranreddy/pr-to-prod-agents.git
 cd pr-to-prod-agents
 pip install -e .
 
@@ -121,33 +121,31 @@ Simulate a failed health check to trigger automatic rollback:
 python3 -m pr_to_prod.cli demo --mock --simulate-unhealthy
 ```
 
-**Output (last 20 lines)**:
+**Output (last 25 lines)**:
 ```
 Demo Workflow Complete!
 
-Final Status: completed
+Final Status: rolled_back
+
+⚠️  DEPLOYMENT ROLLED BACK
+Reason: Simulated unhealthy deployment for testing
+The deployment failed health checks and was automatically rolled back.
+
 Steps Executed: 7
 
 Workflow Log:
-  [2026-09-29T00:33:30.916277+00:00] Plan created with 1 files to change
-  [2026-09-29T00:33:30.928930+00:00] Created PR #1
-  [2026-09-29T00:33:30.937163+00:00] Review: Approved
-  [2026-09-29T00:33:30.946237+00:00] Tests: 2 passed, 0 failed
-  [2026-09-29T00:33:30.950943+00:00] Auto-approved in demo mode
-  [2026-09-29T00:33:32.963025+00:00] Deployed to staging: Failed
-  [2026-09-29T00:33:32.967278+00:00] Final report posted to issue
+  [2026-09-29T00:40:57.718218+00:00] Plan created with 1 files to change
+  [2026-09-29T00:40:57.731500+00:00] Created PR #1
+  [2026-09-29T00:40:57.739474+00:00] Review: Approved
+  [2026-09-29T00:40:57.749255+00:00] Tests: 2 passed, 0 failed
+  [2026-09-29T00:40:57.752750+00:00] Auto-approved in demo mode
+  [2026-09-29T00:40:59.765668+00:00] Deployed to staging: Failed
+  [2026-09-29T00:40:59.769827+00:00] Final report posted to issue
 
 Audit Log:
-  [2026-09-29T00:33:30.914144+00:00] ALLOWED - planner called read_repo 
-  [2026-09-29T00:33:30.914814+00:00] ALLOWED - planner called search_code 
-  [2026-09-29T00:33:30.923284+00:00] ALLOWED - coder called push_branch 
-  [2026-09-29T00:33:30.924421+00:00] ALLOWED - coder called read_file 
-  [2026-09-29T00:33:30.925058+00:00] ALLOWED - coder called write_file 
-  [2026-09-29T00:33:30.926668+00:00] ALLOWED - coder called create_pr 
-  [2026-09-29T00:33:30.933625+00:00] ALLOWED - reviewer called read_file 
-  [2026-09-29T00:33:30.934325+00:00] ALLOWED - reviewer called comment_pr 
-  [2026-09-29T00:33:30.935433+00:00] ALLOWED - reviewer called review_pr 
-  [2026-09-29T00:33:30.941741+00:00] ALLOWED - tester called write_file 
+  [2026-09-29T00:40:57.716212+00:00] ALLOWED - planner called read_repo 
+  [2026-09-29T00:40:57.716891+00:00] ALLOWED - planner called search_code 
+  [2026-09-29T00:40:57.725770+00:00] ALLOWED - coder called push_branch 
 ```
 
 ### Run Tests
@@ -165,8 +163,8 @@ pytest tests/ --co -q
 ```
 
 **Test Summary**:
-- **51 tests** (40 unit + 11 integration)
-- **58% coverage** (669/1575 lines)
+- **51 tests** (48 unit + 3 integration)
+- **57% coverage** (674/1585 lines)
 - All tests pass in CI
 
 ### Linting and Type Checking
@@ -269,10 +267,16 @@ Override per-agent models via environment variables:
    - Add authentication and request validation
 
 4. **AWS Infrastructure Deployment**
-   - Deploy ECS Fargate cluster for agent runners
-   - Set up RDS PostgreSQL for checkpoint persistence
-   - Configure EventBridge for workflow orchestration
-   - Add S3 for artifact storage
+   - Deploy AWS CDK stack (`infrastructure/cdk_stack.py`)
+   - Configure API Gateway webhook endpoint
+   - Set up Lambda function for webhook processing
+   - Deploy SQS queue for job buffering
+   - Launch ECS Fargate cluster for LangGraph orchestrator
+   - Provision Aurora Postgres for checkpoint persistence
+   - Configure Bedrock access for Claude models
+   - Set up Langfuse for LLM tracing
+   - Configure Secrets Manager for agent tokens
+   - Add CloudWatch dashboards and alarms
 
 5. **Evaluation Harness**
    - Run evaluation against 20 sample issues with real APIs
@@ -289,18 +293,17 @@ Override per-agent models via environment variables:
 
 ### Test Structure
 
-- **Unit Tests** (`tests/unit/`): Test individual components in isolation
+- **Unit Tests** (`tests/unit/`): Test individual components in isolation (48 tests)
   - Workflow routing logic
   - Permission enforcement
   - Checkpoint persistence
   - Sandbox execution
   - Rollback behavior
 
-- **Integration Tests** (`tests/integration/`): Test end-to-end workflows
+- **Integration Tests** (`tests/integration/`): Test end-to-end workflows (3 tests)
   - Full workflow execution with mocks
   - Step ordering verification
   - PR reuse on retries
-  - Approval gate behavior
 
 ### Running Tests Locally
 
@@ -339,9 +342,6 @@ source venv/bin/activate
 
 # Install in editable mode with dev dependencies
 pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pre-commit install
 ```
 
 ### Code Quality
@@ -363,15 +363,33 @@ This project uses:
 
 ## License
 
-[Add license information]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2026 Saran Alla
 
 ## Contributing
 
-[Add contribution guidelines]
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with tests
+4. Run the test suite: `pytest tests/ -v`
+5. Ensure linting passes: `black pr_to_prod tests && ruff check pr_to_prod tests`
+6. Ensure type checking passes: `mypy pr_to_prod --ignore-missing-imports`
+7. Commit your changes (`git commit -m 'Add amazing feature'`)
+8. Push to the branch (`git push origin feature/amazing-feature`)
+9. Open a Pull Request
+
+Please ensure your PR:
+- Includes tests for new functionality
+- Maintains or improves code coverage
+- Passes all CI checks (lint, type-check, test)
+- Includes documentation updates if needed
 
 ---
 
 **Current Version**: Development (not released)  
-**Test Coverage**: 58% (669/1575 lines)  
-**Tests**: 51 passing (40 unit, 11 integration)  
+**Test Coverage**: 57% (674/1585 lines)  
+**Tests**: 51 passing (48 unit, 3 integration)  
 **CI Status**: All checks passing

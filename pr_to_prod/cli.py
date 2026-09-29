@@ -174,6 +174,16 @@ async def _run_demo(use_mock: bool, simulate_unhealthy: bool = False) -> None:
 
     console.print("\n[bold green]Demo Workflow Complete![/bold green]\n")
     console.print(f"Final Status: {result.current_step.value}")
+    
+    # Add rollback notice if applicable
+    if result.current_step == WorkflowStep.ROLLED_BACK:
+        console.print("\n[bold red]⚠️  DEPLOYMENT ROLLED BACK[/bold red]")
+        if result.deploy_result and result.deploy_result.rollback_reason:
+            console.print(f"[red]Reason: {result.deploy_result.rollback_reason}[/red]")
+        console.print(
+            "[yellow]The deployment failed health checks and was automatically rolled back.[/yellow]\n"
+        )
+    
     console.print(f"Steps Executed: {len(result.messages)}")
 
     console.print("\n[bold]Workflow Log:[/bold]")

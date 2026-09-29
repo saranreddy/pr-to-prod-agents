@@ -29,6 +29,7 @@ class WorkflowStep(StrEnum):
     REPORT = "report"
     FAILED = "failed"
     COMPLETED = "completed"
+    ROLLED_BACK = "rolled_back"  # Deployment rolled back due to health check failure
 
 
 class AgentPermission(StrEnum):

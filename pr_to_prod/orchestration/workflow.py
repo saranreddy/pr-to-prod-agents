@@ -270,7 +270,15 @@ class WorkflowOrchestrator:
         try:
             result = await self.reporter.execute(state)
             state.add_message("Final report posted to issue")
-            state.current_step = WorkflowStep.COMPLETED
+            
+            # Set final status based on deployment result
+            if state.deploy_result and state.deploy_result.rolled_back:
+                state.current_step = WorkflowStep.ROLLED_BACK
+                logger.warning("Orchestrator: Workflow ended with ROLLED_BACK status")
+            else:
+                state.current_step = WorkflowStep.COMPLETED
+                logger.info("Orchestrator: Workflow completed successfully")
+                
             state.completed_at = datetime.utcnow()
             self._track_tokens(state, result)
         except Exception as e:
