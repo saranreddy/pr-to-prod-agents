@@ -1,0 +1,98 @@
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=22, labelloc=t, label="PR-to-Production Agent Team: Architecture on AWS", pad=0.4, nodesep=0.35, ranksep=0.7, bgcolor="white", compound=true, newrank=true];
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, fillcolor="#FFFFFF", color="#555555", penwidth=1.2, margin="0.15,0.08"];
+  edge [fontname="Helvetica", fontsize=10, color="#555555", penwidth=1.2, arrowsize=0.8];
+
+  subgraph cluster_github {
+    label="GitHub"; style="rounded,filled"; fillcolor="#F3F4F6"; color="#9CA3AF"; fontsize=15;
+    issue [label="Issue\n(label: agent:build)", fillcolor="#E5E7EB"];
+    repo [label="Repository\nagent/* branches + PRs", fillcolor="#E5E7EB"];
+    actions [label="GitHub Actions\nCI: tests, lint, security scan\nCD: deploy workflow", fillcolor="#E5E7EB"];
+  }
+
+  subgraph cluster_entry {
+    label="1. Entry and events"; style="rounded,filled"; fillcolor="#EFF6FF"; color="#93C5FD"; fontsize=15;
+    apigw [label="API Gateway\n(webhook endpoint)"];
+    lambda [label="Lambda\nvalidate + enqueue"];
+    sqs [label="SQS Job Queue\n+ dead-letter queue"];
+  }
+
+  subgraph cluster_orch {
+    label="2. Orchestration (ECS Fargate)"; style="rounded,filled"; fillcolor="#FEF3C7"; color="#FCD34D"; fontsize=15;
+    sup [label="LangGraph Supervisor\nroutes work, retry caps,\npauses for approval", fillcolor="#FDE68A", penwidth=2];
+    subgraph cluster_agents {
+      label="3. Specialist agents (least privilege)"; style="rounded,filled"; fillcolor="#FFFBEB"; color="#FCD34D"; fontsize=13;
+      planner [label="Planner\nread-only"];
+      coder [label="Coder\npush agent/* only"];
+      reviewer [label="Reviewer\ncomment only"];
+      tester [label="Tester\npush tests, read CI"];
+      deployer [label="Deployer\nmerge + trigger deploy"];
+      reporter [label="Reporter\ncomment on issue"];
+    }
+  }
+
+  sandbox [label="Coder Sandbox\nshort-lived Fargate task\nrepo clone, no prod creds,\nrestricted egress", fillcolor="#FEE2E2", color="#F87171"];
+
+  subgraph cluster_platform {
+    label="4-6. Platform services"; style="rounded,filled"; fillcolor="#ECFDF5"; color="#6EE7B7"; fontsize=15;
+    tools [label="Tool Gateway / MCP servers\nGitHub, CI logs, deploy\nauth, rate limits, audit log"];
+    bedrock [label="Amazon Bedrock (Claude)\nstrong model: coder, reviewer\ncheap model: planner, reporter\ntoken budget per job"];
+    pg [label="Aurora Postgres\nworkflow checkpoints\njob history, pgvector"];
+    secrets [label="Secrets Manager\nper-agent GitHub App tokens"];
+  }
+
+  subgraph cluster_human {
+    label="7. Human approval"; style="rounded,filled"; fillcolor="#F5F3FF"; color="#C4B5FD"; fontsize=15;
+    notify [label="SNS / Slack\nplan, diff, review, tests"];
+    human [label="Reviewer (you)\nApprove / Reject", shape=box, fillcolor="#DDD6FE", penwidth=2];
+  }
+
+  subgraph cluster_delivery {
+    label="8. Delivery"; style="rounded,filled"; fillcolor="#EEF2FF"; color="#A5B4FC"; fontsize=15;
+    staging [label="Staging app\nECS Fargate + ALB"];
+    health [label="CloudWatch\nhealth checks, error rate\nauto-rollback trigger"];
+  }
+
+  subgraph cluster_obs {
+    label="9. Observability and governance"; style="rounded,filled"; fillcolor="#F9FAFB"; color="#D1D5DB"; fontsize=15;
+    langfuse [label="Langfuse traces\nevery agent step, cost, latency"];
+    evals [label="Eval set (20-30 issues)\npass rate, retries, cost/job"];
+  }
+
+  // Flow
+  issue -> apigw [label="webhook"];
+  apigw -> lambda -> sqs;
+  sqs -> sup [label="job"];
+
+  sup -> planner [label="1 plan"];
+  sup -> coder [label="2 code"];
+  sup -> reviewer [label="3 review"];
+  sup -> tester [label="4 test"];
+  sup -> deployer [label="6 deploy"];
+  sup -> reporter [label="7 report"];
+
+  reviewer -> coder [label="changes requested\n(max 3 rounds)", style=dashed, color="#DC2626", fontcolor="#DC2626", constraint=false];
+  tester -> coder [label="CI failures", style=dashed, color="#DC2626", fontcolor="#DC2626", constraint=false];
+
+  coder -> sandbox [label="runs code"];
+  sandbox -> repo [label="push branch,\nopen PR"];
+  repo -> actions [label="PR triggers CI"];
+
+  sup -> notify [label="5 request approval"];
+  notify -> human;
+  human -> sup [label="approve / reject", color="#7C3AED", fontcolor="#7C3AED", penwidth=2];
+
+  deployer -> tools [style=dotted];
+  tools -> actions [label="merge + run\ndeploy workflow"];
+  actions -> staging [label="deploy"];
+  staging -> health;
+  health -> deployer [label="healthy or\nrollback", style=dashed, color="#2563EB", fontcolor="#2563EB", constraint=false];
+  reporter -> issue [label="summary comment", style=dashed, constraint=false];
+
+  sup -> pg [label="checkpoint\neach step", style=dotted];
+  sup -> bedrock [label="LLM calls", style=dotted];
+  sup -> tools [label="tool calls", style=dotted];
+  tools -> secrets [style=dotted];
+  sup -> langfuse [label="traces", style=dotted];
+  langfuse -> evals [style=dotted];
+}
